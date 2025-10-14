@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, Link } from "expo-router";
-import { signInWithEmailAndPassword, sendEmailVerification, signOut } from "firebase/auth"; // ⬅️ añade estos
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../src/firebaseConfig";
 import { validateEmail, validatePassword } from "../../src/validators";
 import axios from "axios";
@@ -52,41 +52,26 @@ export default function LoginScreen() {
     setSubmitting(true);
     setFormError(null);
     try {
-      // 1) Login Firebase
+      // 1) Firebase Login
       await signInWithEmailAndPassword(auth, email.trim(), pw);
 
-      // 2) Refrescar y validar verificación
-      await auth.currentUser?.reload();
-      const u = auth.currentUser;
-
-      if (!u) {
-        setFormError("Ocurrió un problema con tu sesión. Intenta nuevamente.");
-        return;
+      // 2) Tomar uid y pedir perfil a la API
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        try {
+          const { data } = await axios.get(`${API_BASE}/users/${uid}`);
+          // 3) Guardar en cache local
+          await saveProfile({
+            ...data,
+            updatedAt: new Date().toISOString(),
+          });
+        } catch (err) {
+          console.log("WARN fetch/cache profile:", err);
+          // si falla, igual navegamos; la app puede reintentar luego
+        }
       }
 
-      if (!u.emailVerified) {
-        // (Opcional) reenviar automáticamente
-        try { await sendEmailVerification(u); } catch { }
-
-        // Cerrar sesión para impedir acceso
-        await signOut(auth);
-
-        setFormError(
-          "Debes verificar tu correo antes de entrar. Te enviamos (o re-enviamos) el email de verificación."
-        );
-        return;
-      }
-
-      // 3) Si está verificado: traer perfil y cachear
-      const uid = u.uid;
-      try {
-        const { data } = await axios.get(`${API_BASE}/users/${uid}`);
-        await saveProfile({ ...data, updatedAt: new Date().toISOString() });
-      } catch (err) {
-        console.log("WARN fetch/cache profile:", err);
-      }
-
-      // 4) Navegar a la app
+      // 4) Ir a tabs
       router.replace("/(tabs)");
     } catch (e: any) {
       setFormError(prettyError(e));
