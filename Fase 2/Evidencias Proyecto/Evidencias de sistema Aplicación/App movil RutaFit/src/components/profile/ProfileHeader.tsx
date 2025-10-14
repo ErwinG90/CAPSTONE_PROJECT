@@ -1,7 +1,8 @@
 // src/components/profile/ProfileHeader.tsx
 import React from "react";
-import { View, Text, Image } from "react-native";
+import { View, Text, Image, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { AVATAR_IMAGES, AvatarKey } from "../../Constants"; // tu Constants actual
 
 type Props = {
     nombre?: string;
@@ -9,7 +10,9 @@ type Props = {
     email?: string;
     deporteNombre?: string;
     nivelNombre?: string;
-    avatar?: string;
+    avatar?: string | null;
+    onPressChangeAvatar?: () => void;
+    onPressEdit?: () => void; // <— NUEVO
 };
 
 export default function ProfileHeader({
@@ -19,30 +22,61 @@ export default function ProfileHeader({
     deporteNombre,
     nivelNombre,
     avatar,
+    onPressChangeAvatar,
+    onPressEdit,
 }: Props) {
+    const imgSrc = avatar ? AVATAR_IMAGES[avatar as AvatarKey] : null;
+
     return (
         <View className="bg-white border border-gray-200 rounded-2xl p-4 mb-3">
             <View className="flex-row items-center">
-                <View className="h-12 w-12 rounded-full bg-primary/15 border border-primary items-center justify-center mr-3 overflow-hidden">
-                    {avatar ? (
+                {/* Avatar */}
+                <View className="relative mr-3">
+                    {imgSrc ? (
                         <Image
-                            source={{ uri: avatar }}
-                            style={{ width: 48, height: 48 }}
-                            className="rounded-full"
+                            source={imgSrc}
+                            style={{ width: 64, height: 64, borderRadius: 9999 }}
+                            className="bg-primary/15 border border-primary"
                         />
                     ) : (
-                        <Ionicons name="person" size={22} color="#22c55e" />
+                        <View className="w-16 h-16 rounded-full bg-primary/15 border border-primary items-center justify-center">
+                            <Ionicons name="person" size={28} color="#22c55e" />
+                        </View>
+                    )}
+
+                    {!!onPressChangeAvatar && (
+                        <Pressable
+                            onPress={onPressChangeAvatar}
+                            className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-primary items-center justify-center border-2 border-white"
+                            hitSlop={8}
+                            style={{ elevation: 3 }}
+                        >
+                            <Ionicons name="camera" size={14} color="#ffffff" />
+                        </Pressable>
                     )}
                 </View>
 
+                {/* Datos + botón editar */}
                 <View className="flex-1">
-                    <Text className="text-text text-[16px] font-bold">
-                        {nombre || "Usuario"} {apellido || "Test"}
-                    </Text>
+                    <View className="flex-row items-start justify-between">
+                        <Text className="text-text text-[16px] font-bold" numberOfLines={1}>
+                            {nombre || "Usuario"} {apellido || "Test"}
+                        </Text>
+
+                        {!!onPressEdit && (
+                            <Pressable
+                                onPress={onPressEdit}
+                                className="ml-2 h-8 w-8 rounded-lg bg-gray-100 border border-gray-200 items-center justify-center"
+                                hitSlop={6}
+                            >
+                                <Ionicons name="create-outline" size={16} color="#111827" />
+                            </Pressable>
+                        )}
+                    </View>
 
                     <View className="flex-row items-center mt-1">
                         <Ionicons name="mail" size={14} color="#6b7280" />
-                        <Text className="text-[#6b7280] ml-1 text-xs">
+                        <Text className="text-[#6b7280] ml-1 text-xs" numberOfLines={1}>
                             {email || "correo@ejemplo.com"}
                         </Text>
                     </View>
