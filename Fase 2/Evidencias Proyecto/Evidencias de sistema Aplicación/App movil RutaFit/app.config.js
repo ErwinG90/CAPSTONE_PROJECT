@@ -1,6 +1,6 @@
-import "dotenv/config";
+require("dotenv").config();
 
-export default {
+module.exports = {
   expo: {
     name: "rutafitD",
     slug: "rutafitD",
@@ -23,6 +23,7 @@ export default {
       },
     },
     android: {
+      package: "cl.rutafit.app",
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff",
@@ -30,11 +31,13 @@ export default {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       permissions: ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      config: {
+        googleMaps: {
+          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY, // 👈 misma var
+        },
+      },
     },
-    web: {
-      favicon: "./assets/favicon.png",
-      bundler: "metro",
-    },
+    web: { favicon: "./assets/favicon.png", bundler: "metro" },
     plugins: [
       "expo-router",
       [
@@ -45,8 +48,6 @@ export default {
         },
       ],
     ],
-
-    // Variables públicas de Firebase (se incrustan en el cliente)
     extra: {
       EXPO_PUBLIC_FB_API_KEY: process.env.EXPO_PUBLIC_FB_API_KEY,
       EXPO_PUBLIC_FB_AUTH_DOMAIN: process.env.EXPO_PUBLIC_FB_AUTH_DOMAIN,
