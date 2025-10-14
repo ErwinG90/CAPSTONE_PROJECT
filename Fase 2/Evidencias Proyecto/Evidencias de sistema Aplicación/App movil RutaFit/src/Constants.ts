@@ -14,12 +14,16 @@ export const API_ENDPOINTS = {
 };
 
 // ===== CONFIGURACIÓN DE VALIDACIÓN =====
+const CURRENT_YEAR = new Date().getFullYear();
+const MAX_AGE = 75; // límite superior de edad para registro
+
 export const VALIDATION_CONFIG = {
   MIN_NAME_LENGTH: 2,
   MIN_PASSWORD_LENGTH: 6,
   MIN_AGE: 16,
-  CURRENT_YEAR: new Date().getFullYear(),
-  MIN_YEAR: 1950,
+  MAX_AGE: MAX_AGE,          // ← 75
+  CURRENT_YEAR,              // año actual
+  MIN_YEAR: CURRENT_YEAR - MAX_AGE, // año mínimo permitido (≈ hoy - 75)
 };
 
 // ===== MENSAJES DE ERROR =====
@@ -40,6 +44,7 @@ export const ERROR_MESSAGES = {
     DATE_FUTURE: "La fecha no puede ser futura.",
     DATE_UNDERAGE: "Debes tener al menos 16 años.",
     DATE_TOO_OLD: "Fecha demasiado antigua.",
+    DATE_OVERAGE: "No puedes registrarte con más de 75 años.", // actualizado
   },
 };
 
@@ -81,7 +86,7 @@ export const BUTTONS = {
   LOGIN_LINK: "¿Ya tienes cuenta? Inicia sesión",
 };
 
-// Exportar todo como un objeto principal para compatibilidad
+// Export “bundle” para compatibilidad
 export const constants = {
   SOLO_LETRAS,
   API_BASE_URL,
@@ -93,3 +98,4 @@ export const constants = {
   LABELS,
   BUTTONS,
 };
+

@@ -1,3 +1,4 @@
+// app/(tabs)/_layout.tsx
 import React, { useEffect, useState } from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { Tabs, useRouter } from "expo-router";
