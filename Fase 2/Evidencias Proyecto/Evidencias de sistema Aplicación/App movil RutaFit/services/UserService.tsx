@@ -24,3 +24,9 @@ export async function updateUserAvatar(uid: string, avatarKey: string) {
     return data;
 }
 
+export async function getUserById(uid: string) {
+    const url = `${API_BASE}/users/${encodeURIComponent(uid)}`;
+    const { data } = await axios.get(url);
+    return data;
+}
+
