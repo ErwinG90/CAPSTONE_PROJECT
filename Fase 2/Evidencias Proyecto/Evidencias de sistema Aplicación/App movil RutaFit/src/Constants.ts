@@ -93,3 +93,42 @@ export const constants = {
   LABELS,
   BUTTONS,
 };
+
+export const AVATAR_KEYS = [
+  "ciclista_hombre",
+  "ciclista_mujer",
+  "senderismo_hombre",
+  "senderismo_mujer",
+  "running_hombre",
+  "running_mujer",
+  "trekking_hombre",
+  "trekking_mujer",
+  "zorro",
+  "aguila",
+  "buho",
+  "huella",
+  "brujula",
+  "sol_naciente",
+  "Pluma"
+] as const;
+export type AvatarKey = typeof AVATAR_KEYS[number];
+
+// Import estático: RN necesita `require` con ruta fija
+export const AVATAR_IMAGES: Record<AvatarKey, any> = {
+  ciclista_hombre: require("../assets/ImgPerfil/Ciclismo1.png"),
+  ciclista_mujer: require("../assets/ImgPerfil/Ciclismo2.png"),
+  senderismo_hombre: require("../assets/ImgPerfil/Senderismo1.png"),
+  senderismo_mujer: require("../assets/ImgPerfil/Senderismo2.png"), // <- ojo aquí
+  running_hombre: require("../assets/ImgPerfil/Running1.png"),
+  running_mujer: require("../assets/ImgPerfil/Running2.png"),
+  trekking_hombre: require("../assets/ImgPerfil/Trekking1.png"),
+  trekking_mujer: require("../assets/ImgPerfil/Trekking2.png"),
+  zorro: require("../assets/ImgPerfil/Zorro.png"),
+  aguila: require("../assets/ImgPerfil/Aguila.png"),
+  buho: require("../assets/ImgPerfil/Buho.png"),
+  huella: require("../assets/ImgPerfil/Huella.png"),
+  brujula: require("../assets/ImgPerfil/Brujula.png"),
+  sol_naciente: require("../assets/ImgPerfil/Sol.png"),
+  Pluma: require("../assets/ImgPerfil/Pluma.png"),
+};
+

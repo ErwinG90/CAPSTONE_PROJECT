@@ -1,607 +1,187 @@
-﻿import { View, Text, Pressable, Modal, TextInput, ScrollView, Platform, Alert } from "react-native";
+﻿import { View, Text, Pressable, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { Picker } from "@react-native-picker/picker";
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState, useEffect } from "react";
 import type { Deporte } from "../../interface/Deporte";
+import type { Evento } from "../../interface/Evento";
 import { deporteService } from "../../services/DeporteService";
-import { eventoService } from '../../services/EventoService';
-import { getProfile } from '../../src/storage/localCache';
-import { validateEventoForm, prepararFechaHoraCombinada, validateFechaEvento, validateHoraEvento, validateDeporteEvento, validateTituloEvento, validateUbicacionEvento, validateParticipantesEvento } from "../../src/validators";
+import { eventoService } from "../../services/EventoService";
+import EventCard from "../../src/components/events/EventCard";
+import { useEvents } from "../../src/hooks/useEvents";
+import EventModal from "../../src/components/events/EventModal";
+import EventDetailsModal from "../../src/components/events/EventDetailsModal";
+import { auth } from "../../src/firebaseConfig";
 
 export default function EventosScreen() {
-    const [modalVisible, setModalVisible] = useState(false);
-    const [nombreEvento, setNombreEvento] = useState("");
-    const [deporteId, setDeporteId] = useState<string>("");
-    const [lugar, setLugar] = useState("");
+  const [modalVisible, setModalVisible] = useState(false);
+  const [deportes, setDeportes] = useState<Deporte[]>([]);
+  // “Disponibles”
+  const { eventos, cargandoEventos, errorEventos, obtenerEventos } = useEvents(deportes);
+  const [modalDetallesVisible, setModalDetallesVisible] = useState(false);
+  const [eventoSeleccionado, setEventoSeleccionado] = useState<Evento | null>(null);
 
-    // Estados para fecha y hora híbrida con DateTimePicker nativo
-    const [fechaEvento, setFechaEvento] = useState(new Date());
-    const [horaEvento, setHoraEvento] = useState(new Date());
-    const [mostrarDatePicker, setMostrarDatePicker] = useState(false);
-    const [mostrarTimePicker, setMostrarTimePicker] = useState(false);
+  // pestaña activa
+  const [pestañaActiva, setPestañaActiva] = useState<"disponibles" | "mis-eventos">("disponibles");
 
-    const [maxParticipantes, setMaxParticipantes] = useState(0);
-    const [descripcion, setDescripcion] = useState("");
-    const [deportes, setDeportes] = useState<Deporte[]>([]);
-    const [erroresValidacion, setErroresValidacion] = useState<string[]>([]);
+  // “Mis eventos”
+  const [misEventos, setMisEventos] = useState<Evento[]>([]);
+  const [cargandoMis, setCargandoMis] = useState(false);
+  const [errorMis, setErrorMis] = useState<string | null>(null);
 
-    // Estados para errores específicos de campos
-    const [errorFecha, setErrorFecha] = useState<string | null>(null);
-    const [errorHora, setErrorHora] = useState<string | null>(null);
-    const [errorDeporte, setErrorDeporte] = useState<string | null>(null);
-    const [errorTitulo, setErrorTitulo] = useState<string | null>(null);
-    const [errorUbicacion, setErrorUbicacion] = useState<string | null>(null);
-    const [errorParticipantes, setErrorParticipantes] = useState<string | null>(null);
-    const [mensajeExito, setMensajeExito] = useState<string | null>(null);
-    const [creandoEvento, setCreandoEvento] = useState(false);
+  const handleVerDetalles = (evento: Evento) => {
+    setEventoSeleccionado(evento);
+    setModalDetallesVisible(true);
+  };
 
-    useEffect(() => {
-        const fetchDeportes = async () => {
-            try {
-                const deportesRes = await deporteService.getDeportes();
-                setDeportes(deportesRes);
-            } catch (error) {
-                console.log("Error:", error);
-            }
-        };
-        fetchDeportes();
-    }, []);
-
-    // Funciones para manejar DateTimePicker
-    const onCambiarFecha = (event: any, selectedDate?: Date) => {
-        setMostrarDatePicker(false);
-        if (selectedDate) {
-            setFechaEvento(selectedDate);
-            // Validar fecha y mostrar error si es necesario
-            const errorFechaValidacion = validateFechaEvento(selectedDate);
-            setErrorFecha(errorFechaValidacion);
-            // Limpiar errores generales
-            setErroresValidacion([]);
-        }
+  // cargar catálogo de deportes
+  useEffect(() => {
+    const fetchDeportes = async () => {
+      try {
+        const deportesRes = await deporteService.getDeportes();
+        setDeportes(deportesRes);
+      } catch (error) {
+        console.log("Error:", error);
+      }
     };
+    fetchDeportes();
+  }, []);
 
-    const onCambiarHora = (event: any, selectedTime?: Date) => {
-        setMostrarTimePicker(false);
-        if (selectedTime) {
-            setHoraEvento(selectedTime);
-            // Validar hora y mostrar error si es necesario
-            const errorHoraValidacion = validateHoraEvento(selectedTime);
-            setErrorHora(errorHoraValidacion);
-            // Limpiar errores generales
-            setErroresValidacion([]);
-        }
-    };
+  // cargar “Mis eventos” cuando se selecciona la pestaña
+  useEffect(() => {
+    const cargarMisEventos = async () => {
+      try {
+        setCargandoMis(true);
+        setErrorMis(null);
 
-    const obtenerFechaMinima = (): string => {
-        const hoy = new Date();
-        const mañana = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
-        return mañana.toISOString().split('T')[0];
-    };
-
-    const obtenerFechaMaxima = (): string => {
-        const unAñoDelante = new Date();
-        unAñoDelante.setFullYear(unAñoDelante.getFullYear() + 1);
-        return unAñoDelante.toISOString().split('T')[0];
-    };
-
-    const formatearFechaParaMostrar = (fecha: Date): string => {
-        return fecha.toLocaleDateString('es-ES', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-    };
-
-    const formatearHoraParaMostrar = (hora: Date): string => {
-        return hora.toLocaleTimeString('es-ES', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
-    // Funciones para convertir Date a string para inputs web
-    const fechaParaInputWeb = (fecha: Date): string => {
-        return fecha.toISOString().split('T')[0];
-    };
-
-    const horaParaInputWeb = (hora: Date): string => {
-        return hora.toTimeString().split(' ')[0].substring(0, 5);
-    };
-
-    // Función para crear fecha desde input web (evita problemas de zona horaria)
-    const crearFechaDesdeInputWeb = (fechaString: string): Date => {
-        const [year, month, day] = fechaString.split('-').map(Number);
-        return new Date(year, month - 1, day); // month - 1 porque Date usa 0-based months
-    };
-
-    const handleCrearEvento = async () => {
-        // Validar campos específicos primero
-        const errorFechaValidacion = validateFechaEvento(fechaEvento);
-        const errorHoraValidacion = validateHoraEvento(horaEvento);
-        const errorDeporteValidacion = validateDeporteEvento(deporteId);
-        const errorTituloValidacion = validateTituloEvento(nombreEvento);
-        const errorUbicacionValidacion = validateUbicacionEvento(lugar);
-        const errorParticipantesValidacion = validateParticipantesEvento(maxParticipantes);
-
-
-        // Validar formulario completo
-        const validationResult = validateEventoForm(
-            nombreEvento,
-            deporteId,
-            lugar,
-            fechaEvento,
-            horaEvento,
-            maxParticipantes,
-            descripcion
-        );
-
-        // Actualizar estados de error
-        setErrorFecha(errorFechaValidacion);
-        setErrorHora(errorHoraValidacion);
-        setErrorDeporte(errorDeporteValidacion);
-        setErrorTitulo(errorTituloValidacion);
-        setErrorUbicacion(errorUbicacionValidacion);
-        setErrorParticipantes(errorParticipantesValidacion);
-        setErroresValidacion(validationResult.errors);
-
-        // Verificar si hay errores usando las variables (no los estados)
-        if (!validationResult.isValid || errorFechaValidacion || errorHoraValidacion || errorDeporteValidacion || errorTituloValidacion || errorUbicacionValidacion || errorParticipantesValidacion) {
-            return; // Detener ejecución si hay errores
+        const uid = auth.currentUser?.uid; // UID real del usuario logueado
+        if (!uid) {
+          setErrorMis("Inicia sesión para ver tus eventos.");
+          setMisEventos([]);
+          return;
         }
 
-        // Obtener usuario del caché
-        const userProfile = await getProfile();
-        console.log("Profile from cache:", userProfile);
-        const userId = userProfile?.uid;
-
-        if (!userId) {
-            if (Platform.OS === 'web') {
-                alert('Error: No se pudo identificar el usuario');
-            } else {
-                Alert.alert('Error', 'No se pudo identificar el usuario');
-            }
-            return;
-        }
-
-
-        // Preparar datos para enviar
-        const datosEvento = {
-            nombre_evento: nombreEvento,
-            deporte_id: deporteId,
-            lugar: lugar,
-            fecha_evento: prepararFechaHoraCombinada(fechaEvento, horaEvento),
-            max_participantes: maxParticipantes,
-            descripcion: descripcion,
-            createdBy: userId,
-            participantes: [], // lista de participantes vacia al crear
-            estado: "programado"
-        };
-
-        console.log("Crear evento:", datosEvento);
-
-        // Prevenir múltiples envíos
-        if (creandoEvento) return;
-        setCreandoEvento(true);
-
-        // Enviar datos a la API
-        try {
-            await eventoService.crearEvento(datosEvento);
-
-            // Si llega aquí, fue exitoso
-            // Limpiar errores
-            setErroresValidacion([]);
-            setErrorFecha(null);
-            setErrorHora(null);
-            setErrorDeporte(null);
-            setErrorTitulo(null);
-            setErrorUbicacion(null);
-            setErrorParticipantes(null);
-
-            // Mostrar confirmación según la plataforma
-            if (Platform.OS === 'web') {
-                // Mensaje de texto verde en web
-                setMensajeExito("¡Evento creado exitosamente!");
-                // Cerrar modal después de mostrar el mensaje
-                setTimeout(() => {
-                    setMensajeExito(null);
-                    setModalVisible(false);
-                }, 2500); // 2.5 segundos para ver el mensaje
-            } else {
-                // Cerrar modal inmediatamente en mobile y mostrar alert
-                setModalVisible(false);
-                Alert.alert(
-                    "¡Evento creado!",
-                    "Tu evento se ha creado exitosamente",
-                    [{ text: "OK", style: "default" }]
-                );
-            }
-
-        } catch (error) {
-            console.error("Error creando evento:", error);
-
-            // Mostrar error al usuario
-            if (Platform.OS === 'web') {
-                alert('Error al crear evento. Inténtalo de nuevo.');
-            } else {
-                Alert.alert(
-                    "Error",
-                    "No se pudo crear el evento. Inténtalo de nuevo.",
-                    [{ text: "OK", style: "default" }]
-                );
-            }
-        } finally {
-            setCreandoEvento(false);
-        }
+        const res = await eventoService.getMisEventos(uid, 1, 50);
+        setMisEventos(res.data ?? []); // { total, page, limit, data }
+      } catch (e) {
+        setErrorMis("No se pudieron cargar tus eventos.");
+      } finally {
+        setCargandoMis(false);
+      }
     };
 
-    const handleCancelar = () => {
-        setNombreEvento("");
-        setDeporteId("");
-        setLugar("");
-        setFechaEvento(new Date());
-        setHoraEvento(new Date());
-        setMaxParticipantes(1);
-        setDescripcion("");
-        setErroresValidacion([]);
-        setErrorFecha(null);
-        setErrorHora(null);
-        setErrorDeporte(null);
-        setErrorTitulo(null);
-        setErrorUbicacion(null);
-        setErrorParticipantes(null);
-        setMensajeExito(null);
-        setCreandoEvento(false);
-        setModalVisible(false);
-    };
+    if (pestañaActiva === "mis-eventos") {
+      cargarMisEventos();
+    }
+  }, [pestañaActiva]);
 
-    const incrementarParticipantes = () => {
-        setMaxParticipantes(prev => prev + 1);
-    };
+  return (
+    <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-row justify-between items-center px-6 py-4">
+        <View>
+          <Text className="text-3xl font-bold text-green-500 drop-shadow-lg">Rutafit</Text>
+          <Text className="text-sm text-black-500 mt-1">Únete o crea eventos deportivos</Text>
+        </View>
+        <Pressable
+          onPress={() => setModalVisible(true)}
+          className="bg-primary rounded-full px-4 py-2 flex-row items-center"
+        >
+          <Ionicons name="add" size={20} color="white" />
+          <Text className="text-white font-semibold ml-1">Crear</Text>
+        </Pressable>
+      </View>
 
-    const decrementarParticipantes = () => {
-        setMaxParticipantes(prev => Math.max(0, prev - 1));
-    };
+      <View className="flex-row mx-6 mb-4">
+        <Pressable
+          onPress={() => setPestañaActiva("disponibles")}
+          className={`flex-1 py-3 px-4 rounded-full mr-2 ${
+            pestañaActiva === "disponibles" ? "bg-gray-200" : "bg-transparent"
+          }`}
+        >
+          <Text
+            className={`text-center font-medium ${
+              pestañaActiva === "disponibles" ? "text-black" : "text-gray-500"
+            }`}
+          >
+            Disponibles
+          </Text>
+        </Pressable>
 
-    return (
-        <SafeAreaView className="flex-1 bg-white">
-            <View className="flex-row justify-between items-center px-6 py-4">
-                <View>
-                    <Text className="text-3xl font-bold text-green-500 drop-shadow-lg">Rutafit</Text>
-                    <Text className="text-sm text-black-500 mt-1">Únete o crea eventos deportivos</Text>
-                </View>
-                <Pressable
-                    onPress={() => setModalVisible(true)}
-                    className="bg-primary rounded-full px-4 py-2 flex-row items-center"
-                >
-                    <Ionicons name="add" size={20} color="white" />
-                    <Text className="text-white font-semibold ml-1">Crear</Text>
-                </Pressable>
-            </View>
+        <Pressable
+          onPress={() => setPestañaActiva("mis-eventos")}
+          className={`flex-1 py-3 px-4 rounded-full ml-2 ${
+            pestañaActiva === "mis-eventos" ? "bg-gray-200" : "bg-transparent"
+          }`}
+        >
+          <Text
+            className={`text-center font-medium ${
+              pestañaActiva === "mis-eventos" ? "text-black" : "text-gray-500"
+            }`}
+          >
+            Mis Eventos
+          </Text>
+        </Pressable>
+      </View>
 
-            <View className="flex-1 px-6">
-                <Text className="text-gray-400 text-center mt-20">
-                    Cargando Eventos.....
-                </Text>
-            </View>
-
-            <Modal
-                visible={modalVisible}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                onRequestClose={handleCancelar}
-            >
-                <SafeAreaView className="flex-1 bg-white">
-                    <ScrollView className="flex-1">
-                        <View className="px-6 py-4">
-                            <View className="flex-row justify-between items-center mb-6">
-                                <Text className="text-xl font-bold text-gray-900">Crear Nuevo Evento</Text>
-                                <Pressable onPress={handleCancelar}>
-                                    <Ionicons name="close" size={24} color="#6b7280" />
-                                </Pressable>
-                            </View>
-
-                            {/* Mensaje de éxito solo en web */}
-                            {Platform.OS === 'web' && mensajeExito && (
-                                <View className="mb-4 bg-green-50 border border-green-200 rounded-xl p-4">
-                                    <View className="flex-row items-center justify-center">
-                                        <Text className="text-green-800 font-semibold text-center">
-                                            ✅ {mensajeExito}
-                                        </Text>
-                                    </View>
-                                </View>
-                            )}
-
-                            <View className="mb-4">
-                                <Text className="text-sm text-gray-700 mb-2">Título del evento</Text>
-                                <TextInput
-                                    className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900"
-                                    placeholder="Ej: Carrera matutina en el parque"
-                                    placeholderTextColor="#9ca3af"
-                                    value={nombreEvento}
-                                    onChangeText={(text) => {
-                                        setNombreEvento(text);
-                                        if (erroresValidacion.length > 0) {
-                                            setErroresValidacion([]);
-                                        }
-                                        // Limpiar error de título si hay texto válido
-                                        if (text.trim() !== "" && errorTitulo) {
-                                            const errorTituloValidacion = validateTituloEvento(text);
-                                            if (!errorTituloValidacion) {
-                                                setErrorTitulo(null);
-                                            }
-                                        }
-                                    }}
-                                />
-                                {/* Error de título */}
-                                {errorTitulo && (
-                                    <Text className="text-red-600 text-sm mt-1">
-                                        {errorTitulo}
-                                    </Text>
-                                )}
-                            </View>
-
-                            <View className="mb-4">
-                                <Text className="text-sm text-gray-700 mb-2">Deporte</Text>
-                                <View className="bg-gray-100 rounded-xl border border-gray-200">
-                                    <Picker
-                                        selectedValue={deporteId}
-                                        onValueChange={(itemValue) => {
-                                            setDeporteId(itemValue);
-                                            if (erroresValidacion.length > 0) {
-                                                setErroresValidacion([]);
-                                            }
-                                            // Limpiar error de deporte si se selecciona uno válido
-                                            if (itemValue && itemValue !== "") {
-                                                setErrorDeporte(null);
-                                            }
-                                        }}
-                                    >
-                                        <Picker.Item label="Selecciona un deporte" value="" />
-                                        {deportes.map((d) => (
-                                            <Picker.Item
-                                                key={d._id}
-                                                label={d.nombre}
-                                                value={d._id}
-                                            />
-                                        ))}
-                                    </Picker>
-                                </View>
-                                {/* Error de deporte */}
-                                {errorDeporte && (
-                                    <Text className="text-red-600 text-sm mt-1">
-                                        {errorDeporte}
-                                    </Text>
-                                )}
-                            </View>
-
-                            <View className="mb-4">
-                                <Text className="text-sm text-gray-700 mb-2">Ubicación</Text>
-                                <TextInput
-                                    className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900"
-                                    placeholder="Ej: Parque Central, Zona Norte"
-                                    placeholderTextColor="#9ca3af"
-                                    value={lugar}
-                                    onChangeText={(text) => {
-                                        setLugar(text);
-                                        if (erroresValidacion.length > 0) {
-                                            setErroresValidacion([]);
-                                        }
-                                        // Limpiar error de ubicación si hay texto
-                                        if (text.trim() !== "") {
-                                            setErrorUbicacion(null);
-                                        }
-                                    }}
-                                />
-                                {/* Error de ubicación */}
-                                {errorUbicacion && (
-                                    <Text className="text-red-600 text-sm mt-1">
-                                        {errorUbicacion}
-                                    </Text>
-                                )}
-                            </View>
-
-                            <View className="mb-4">
-                                <Text className="text-sm text-gray-700 mb-2">Fecha del evento</Text>
-                                <View className="bg-gray-100 rounded-xl px-4 py-3">
-                                    {Platform.OS === 'web' ? (
-                                        <input
-                                            type="date"
-                                            value={fechaParaInputWeb(fechaEvento)}
-                                            min={obtenerFechaMinima()}
-                                            max={obtenerFechaMaxima()}
-                                            onChange={(e) => {
-                                                const nuevaFecha = crearFechaDesdeInputWeb(e.target.value);
-                                                setFechaEvento(nuevaFecha);
-                                                // Validar y mostrar error si es necesario
-                                                const errorFechaValidacion = validateFechaEvento(nuevaFecha);
-                                                setErrorFecha(errorFechaValidacion);
-                                                // Limpiar errores generales
-                                                setErroresValidacion([]);
-                                            }}
-                                            style={{
-                                                width: '100%',
-                                                padding: '8px',
-                                                border: 'none',
-                                                background: 'transparent',
-                                                fontSize: '16px',
-                                                color: '#374151'
-                                            }}
-                                        />
-                                    ) : (
-                                        <Pressable onPress={() => setMostrarDatePicker(true)}>
-                                            <Text className="text-gray-900 py-1">
-                                                < Ionicons name="calendar-outline" size={20} color="#111827" />
-                                                {formatearFechaParaMostrar(fechaEvento)}
-                                            </Text>
-                                        </Pressable>
-                                    )}
-                                </View>
-                                {/* Error de fecha */}
-                                {errorFecha && (
-                                    <Text className="text-red-600 text-sm mt-1">
-                                        {errorFecha}
-                                    </Text>
-                                )}
-                            </View>
-
-                            <View className="mb-4">
-                                <Text className="text-sm text-gray-700 mb-2">Hora del evento</Text>
-                                <View className="bg-gray-100 rounded-xl px-4 py-3">
-                                    {Platform.OS === 'web' ? (
-                                        <input
-                                            type="time"
-                                            value={horaParaInputWeb(horaEvento)}
-                                            min="07:00"
-                                            max="23:59"
-                                            onChange={(e) => {
-                                                const [hours, minutes] = e.target.value.split(':');
-                                                const newTime = new Date(horaEvento);
-                                                newTime.setHours(parseInt(hours), parseInt(minutes));
-
-                                                setHoraEvento(newTime);
-                                                // Validar y mostrar error si es necesario
-                                                const errorHoraValidacion = validateHoraEvento(newTime);
-                                                setErrorHora(errorHoraValidacion);
-                                                // Limpiar errores generales
-                                                setErroresValidacion([]);
-                                            }}
-                                            style={{
-                                                width: '100%',
-                                                padding: '8px',
-                                                border: 'none',
-                                                background: 'transparent',
-                                                fontSize: '16px',
-                                                color: '#374151'
-                                            }}
-                                        />
-                                    ) : (
-                                        <Pressable onPress={() => setMostrarTimePicker(true)}>
-                                            <Text className="text-gray-900 py-1">
-                                                <Ionicons name="time-outline" size={20} color="#111827" />
-                                                {formatearHoraParaMostrar(horaEvento)}
-                                            </Text>
-                                        </Pressable>
-                                    )}
-                                </View>
-                                {/* Error de hora */}
-                                {errorHora && (
-                                    <Text className="text-red-600 text-sm mt-1">
-                                        {errorHora}
-                                    </Text>
-                                )}
-                            </View>
-
-                            <View className="mb-4">
-                                <Text className="text-sm text-gray-700 mb-2">Máximo de participantes</Text>
-                                <View className="flex-row items-center">
-                                    <TextInput
-                                        placeholder="Ej: 10"
-                                        className="flex-1 bg-gray-100 rounded-xl px-4 py-3 text-gray-900"
-                                        value={maxParticipantes === 0 ? '' : maxParticipantes.toString()}
-                                        onChangeText={(text) => {
-                                            // Permitir escribir cualquier número
-                                            if (text === '') {
-                                                setMaxParticipantes(0);
-                                            } else {
-                                                const num = parseInt(text);
-                                                if (!isNaN(num)) {
-                                                    setMaxParticipantes(num); // Permitir cualquier número
-                                                }
-                                            }
-                                            // Limpiar errores mientras escribe
-                                            if (erroresValidacion.length > 0) {
-                                                setErroresValidacion([]);
-                                            }
-                                            // Limpiar error de participantes si cambia
-                                            if (errorParticipantes) {
-                                                setErrorParticipantes(null);
-                                            }
-                                        }}
-                                        keyboardType="numeric"
-                                        selectTextOnFocus={true}
-                                    />
-                                    <View className="ml-1">
-                                        <Pressable
-                                            onPress={incrementarParticipantes}
-                                            className="bg-gray-200 px-2 py-0.5 rounded-t-md border border-gray-300"
-                                        >
-                                            <Ionicons name="chevron-up" size={12} color="#374151" />
-                                        </Pressable>
-                                        <Pressable
-                                            onPress={decrementarParticipantes}
-                                            className="bg-gray-200 px-2 py-0.5 rounded-b-md border border-gray-300 border-t-0"
-                                        >
-                                            <Ionicons name="chevron-down" size={12} color="#374151" />
-                                        </Pressable>
-                                    </View>
-                                </View>
-                            </View>
-                            {/* Error de participantes */}
-                            {errorParticipantes && (
-                                <Text className="text-red-600 text-sm mt-1">
-                                    {errorParticipantes}
-                                </Text>
-                            )}
-
-                            <View className="mb-6">
-                                <Text className="text-sm text-gray-700 mb-2">Descripción</Text>
-                                <TextInput
-                                    className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900"
-                                    placeholder="Describe tu evento (opcional)"
-                                    placeholderTextColor="#9ca3af"
-                                    value={descripcion}
-                                    onChangeText={setDescripcion}
-                                    multiline
-                                    numberOfLines={3}
-                                    textAlignVertical="top"
-                                />
-                            </View>
-
-                            <View className="flex-row gap-3">
-                                <Pressable
-                                    onPress={handleCancelar}
-                                    className="flex-1 bg-red-500 rounded-xl py-3 items-center"
-                                >
-                                    <Text className="text-white font-semibold">Cancelar</Text>
-                                </Pressable>
-                                <Pressable
-                                    onPress={creandoEvento ? undefined : handleCrearEvento}
-                                    className={`flex-1 rounded-xl py-3 items-center ${creandoEvento ? 'bg-gray-400' : 'bg-primary'
-                                        }`}
-                                    disabled={creandoEvento}
-                                >
-                                    <Text className="text-white font-semibold">
-                                        {creandoEvento ? 'Creando...' : 'Crear Evento'}
-                                    </Text>
-                                </Pressable>
-                            </View>
-                        </View>
-                    </ScrollView>
-                </SafeAreaView>
-            </Modal>
-
-            {/* DateTimePickers nativos para móvil */}
-            {mostrarDatePicker && Platform.OS !== 'web' && (
-                <DateTimePicker
-                    value={fechaEvento}
-                    mode="date"
-                    display="default"
-                    minimumDate={new Date()}
-                    onChange={onCambiarFecha}
+      <ScrollView className="flex-1 px-6">
+        {pestañaActiva === "disponibles" ? (
+          <>
+            {cargandoEventos ? (
+              <Text className="text-gray-400 text-center mt-20">Cargando eventos...</Text>
+            ) : errorEventos ? (
+              <Text className="text-red-500 text-center mt-20">{errorEventos}</Text>
+            ) : eventos.length === 0 ? (
+              <Text className="text-gray-400 text-center mt-20">No hay eventos disponibles</Text>
+            ) : (
+              eventos.map((evento, index) => (
+                <EventCard
+                  key={evento._id || index}
+                  evento={evento}
+                  onVerDetalles={handleVerDetalles}        // ← directo, sin wrapper
+                  onUnirse={(id) => console.log("Unirse:", id)}
                 />
+              ))
             )}
-
-            {mostrarTimePicker && Platform.OS !== 'web' && (
-                <DateTimePicker
-                    value={horaEvento}
-                    mode="time"
-                    display="default"
-                    onChange={onCambiarHora}
+          </>
+        ) : (
+          <>
+            {cargandoMis ? (
+              <Text className="text-gray-400 text-center mt-20">Cargando mis eventos...</Text>
+            ) : errorMis ? (
+              <Text className="text-red-500 text-center mt-20">{errorMis}</Text>
+            ) : misEventos.length === 0 ? (
+              <Text className="text-gray-400 text-center mt-20">
+                Aún no tienes eventos creados o a los que te hayas unido
+              </Text>
+            ) : (
+              misEventos.map((evento, index) => (
+                <EventCard
+                  key={evento._id || index}
+                  evento={evento}
+                  onVerDetalles={handleVerDetalles}        // ← directo, sin wrapper
+                  onUnirse={(id) => console.log("Unirse (mis):", id)}
                 />
+              ))
             )}
-        </SafeAreaView>
-    );
+          </>
+        )}
+      </ScrollView>
+
+      <EventModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onEventCreated={() => {
+          setModalVisible(false);
+          obtenerEventos(); // refresca “Disponibles”
+          // si quieres refrescar “Mis eventos” luego de crear, puedes forzar setPestañaActiva("mis-eventos") y recargar
+        }}
+        deportes={deportes}
+      />
+
+      <EventDetailsModal
+        visible={modalDetallesVisible}
+        onClose={() => setModalDetallesVisible(false)}
+        evento={eventoSeleccionado}
+      />
+    </SafeAreaView>
+  );
 }
