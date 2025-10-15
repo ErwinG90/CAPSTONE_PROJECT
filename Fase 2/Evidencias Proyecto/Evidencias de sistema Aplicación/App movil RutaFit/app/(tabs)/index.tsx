@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, ActivityIndicator, Platform, Pressable } from "react-native";
+import { View, Text, ActivityIndicator, Platform, Pressable, Alert } from "react-native";
 import MapView, { Marker, Polyline, MapType, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,7 +13,7 @@ import { getProfile } from "../../src/storage/localCache";
 import MapHeader from "../../src/features/map/MapHeader";
 import Fab from "../../src/components/Fab";
 import { useRouteRecorder } from "../../src/hooks/useRouterRecorder";
-import { getDirectionsRoute } from "../../src/utils/google";        
+import { getDirectionsRoute, snapToRoads } from "../../src/utils/google";
 
 export default function HomeScreen() {
   const { locationStatus } = usePermissionsStore();
@@ -33,15 +33,16 @@ export default function HomeScreen() {
   const mapRef = useRef<MapView>(null);
 
   const [mapType, setMapType] = useState<MapType>("standard");
-  const {
-    recording, points, lastPoint, start, stop, distanceMeters, isSimulating, simulatePath,
-  } = useRouteRecorder();
+  const { recording, points, lastPoint, start, stop, distanceMeters } = useRouteRecorder();
 
   const [dest, setDest] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  // ➕ ruta de Google + info
+  // Ruta de Google (al destino)
   const [routePath, setRoutePath] = useState<{ latitude: number; longitude: number }[] | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distance: number; duration: number } | null>(null);
+
+  // Ruta ajustada a calles de tu grabación (Roads)
+  const [snappedPath, setSnappedPath] = useState<{ latitude: number; longitude: number }[] | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -55,63 +56,20 @@ export default function HomeScreen() {
     })();
   }, [locationStatus]);
 
-  /* ---------- helpers de simulación ---------- */
-  const projectMeters = (
-    origin: { latitude: number; longitude: number },
-    distanceM: number,
-    bearingDeg: number
-  ) => {
-    const R = 6371000;
-    const brng = (bearingDeg * Math.PI) / 180;
-    const lat1 = (origin.latitude * Math.PI) / 180;
-    const lon1 = (origin.longitude * Math.PI) / 180;
-    const angDist = distanceM / R;
+  /* ---------- Toast propio (sin icono del sistema) ---------- */
+  const [hint, setHint] = useState<string | null>(null);
+  const hintTimer = useRef<NodeJS.Timeout | null>(null);
 
-    const lat2 = Math.asin(
-      Math.sin(lat1) * Math.cos(angDist) +
-        Math.cos(lat1) * Math.sin(angDist) * Math.cos(brng)
-    );
-
-    const lon2 =
-      lon1 +
-      Math.atan2(
-        Math.sin(brng) * Math.sin(angDist) * Math.cos(lat1),
-        Math.cos(angDist) - Math.sin(lat1) * Math.sin(lat2)
-      );
-
-    return { latitude: (lat2 * 180) / Math.PI, longitude: (lon2 * 180) / Math.PI };
-  };
-
-  const buildLinearPathByDistance = (
-    startPoint: { latitude: number; longitude: number },
-    totalMeters = 1000,
-    segments = 80,
-    bearingDeg = 60
-  ) => {
-    const pts: { latitude: number; longitude: number }[] = [];
-    for (let i = 0; i <= segments; i++) {
-      const d = (totalMeters * i) / segments;
-      pts.push(projectMeters(startPoint, d, bearingDeg));
-    }
-    return pts;
-  };
-
-  const startDemo1km = async () => {
-    const base =
-      lastPoint ??
-      (location ? { latitude: location.coords.latitude, longitude: location.coords.longitude } : null);
-    if (!base) return;
-    const path = buildLinearPathByDistance(base, 1000, 80, 60);
-    await simulatePath(
-      path,
-      (p) => mapRef.current?.animateCamera({ center: p, zoom: 16 }),
-      200
-    );
-  };
+  function tip(msg: string, ms = 1400) {
+    setHint(msg);
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(() => setHint(null), ms);
+  }
 
   /* ---------- acciones ---------- */
   const startAndRecenter = async () => {
     if (!location) return;
+    setSnappedPath(null); // limpiar snap previo
     await start(location);
     mapRef.current?.animateCamera({
       center: { latitude: location.coords.latitude, longitude: location.coords.longitude },
@@ -120,8 +78,24 @@ export default function HomeScreen() {
   };
 
   const toggleRecording = async () => {
-    if (recording || isSimulating) stop();
-    else await startAndRecenter();
+    if (recording) {
+      // Detener y hacer snap-to-roads (post-proceso)
+      stop();
+      try {
+        if (points.length > 1) {
+          const base = points.map(p => ({ latitude: p.latitude, longitude: p.longitude }));
+          const sp = await snapToRoads(base);
+          setSnappedPath(sp);
+        } else {
+          setSnappedPath(null);
+        }
+      } catch (e: any) {
+        console.warn("snapToRoads error:", e);
+        Alert.alert("Snap to Roads", String(e?.message ?? e));
+      }
+    } else {
+      await startAndRecenter();
+    }
   };
 
   const recenter = () => {
@@ -144,30 +118,38 @@ export default function HomeScreen() {
   const onLongPressMap = (e: any) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     setDest({ latitude, longitude });
-    // limpiar ruta anterior si marcas nuevo destino
     setRoutePath(null);
     setRouteInfo(null);
+    tip("Destino marcado. Toca “Trazar ruta al destino”.");
   };
 
-  // ➕ calcular ruta al destino (Routes API v2)
+  // Trazar ruta al destino (Routes API v2)
   async function traceRouteToDest() {
-    if (!dest) return;
+    if (!dest) {
+      tip("Marca un destino con una pulsación larga en el mapa");
+      return;
+    }
+    if (recording) stop(); // opcional
+    setRoutePath(null);
+    setRouteInfo(null);
+
     const origin =
       lastPoint ??
       (location ? { latitude: location.coords.latitude, longitude: location.coords.longitude } : null);
-    if (!origin) return;
+
+    if (!origin) {
+      tip("Aún no tengo tu ubicación. Inténtalo en unos segundos");
+      return;
+    }
 
     try {
-      const r = await getDirectionsRoute({
-        origin,
-        destination: dest,
-        mode: "walking", // o "driving" | "bicycling"
-      });
+      const r = await getDirectionsRoute({ origin, destination: dest, mode: "walking" });
       setRoutePath(r.path);
       setRouteInfo({ distance: r.distanceMeters, duration: r.durationSeconds });
       mapRef.current?.animateCamera({ center: dest, zoom: 16 });
-    } catch (e) {
-      console.warn(String(e));
+    } catch (e: any) {
+      console.warn("traceRouteToDest error:", e);
+      Alert.alert("Error al trazar ruta", String(e?.message ?? e));
     }
   }
 
@@ -184,7 +166,6 @@ export default function HomeScreen() {
   }
 
   const { latitude, longitude } = location.coords;
-  const distanceKm = (distanceMeters / 1000).toFixed(2);
 
   return (
     <View style={{ flex: 1, backgroundColor: "white" }}>
@@ -193,45 +174,30 @@ export default function HomeScreen() {
       {/* Botones arriba */}
       <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
         <Pressable
-          onPress={toggleRecording}
+          onPress={() => {
+            tip(recording ? "Detener grabación y ajustar a calles" : "Comenzar a grabar tu ruta");
+            toggleRecording();
+          }}
           style={{
             marginTop: 10, backgroundColor: "#0B0B14", borderRadius: 12, height: 44,
             alignItems: "center", justifyContent: "center", flexDirection: "row",
           }}
         >
           <Ionicons
-            name={recording || isSimulating ? "stop-circle" : "play-circle"}
+            name={recording ? "stop-circle" : "play-circle"}
             size={18}
             color="white"
           />
           <Text style={{ color: "white", marginLeft: 8, fontWeight: "600" }}>
-            {recording || isSimulating ? "Detener ruta" : "Iniciar Nueva Ruta"}
+            {recording ? "Detener y ajustar a calles" : "Iniciar Nueva Ruta"}
           </Text>
         </Pressable>
 
         <Pressable
-          onPress={startDemo1km}
-          disabled={recording || isSimulating}
-          style={{
-            marginTop: 8,
-            backgroundColor: recording || isSimulating ? "#9CA3AF" : "#111827",
-            borderRadius: 12,
-            height: 40,
-            alignItems: "center",
-            justifyContent: "center",
-            flexDirection: "row",
-            opacity: recording || isSimulating ? 0.8 : 1,
+          onPress={() => {
+            tip("Trazando ruta por calles hasta el destino");
+            traceRouteToDest();
           }}
-        >
-          <Ionicons name="walk-outline" size={16} color="white" />
-          <Text style={{ color: "white", marginLeft: 8, fontWeight: "600" }}>
-            Simular
-          </Text>
-        </Pressable>
-
-        {/* ➕ botón para trazar la ruta de Google al destino marcado */}
-        <Pressable
-          onPress={traceRouteToDest}
           disabled={!dest}
           style={{
             marginTop: 8,
@@ -276,6 +242,7 @@ export default function HomeScreen() {
             longitudeDelta: 0.02,
           }}
         >
+          {/* Mi ubicación */}
           <Marker
             coordinate={{ latitude, longitude }}
             title="Tú"
@@ -283,20 +250,26 @@ export default function HomeScreen() {
             pinColor="green"
           />
 
-          {/* Polyline del recorder */}
-          {points.length > 1 && (
+          {/* Polyline de la grabación cruda (solo si no hay snapped) */}
+          {points.length > 1 && !snappedPath && (
             <Polyline
               coordinates={points.map((p) => ({ latitude: p.latitude, longitude: p.longitude }))}
               strokeWidth={4}
             />
           )}
 
-          {/* ➕ Polyline de la ruta de Google */}
+          {/* Polyline ajustada a calles (Roads API) */}
+          {snappedPath && snappedPath.length > 1 && (
+            <Polyline coordinates={snappedPath} strokeWidth={5} />
+          )}
+
+          {/* Polyline de la ruta de Google al destino */}
           {routePath && routePath.length > 1 && (
             <Polyline coordinates={routePath} strokeWidth={5} />
           )}
 
-          {!recording && !isSimulating && points.length > 0 && (
+          {/* Marcadores inicio/fin de grabación */}
+          {!recording && points.length > 0 && (
             <>
               <Marker
                 coordinate={{ latitude: points[0].latitude, longitude: points[0].longitude }}
@@ -314,6 +287,7 @@ export default function HomeScreen() {
             </>
           )}
 
+          {/* Destino marcado */}
           {dest && (
             <Marker
               coordinate={dest}
@@ -336,11 +310,11 @@ export default function HomeScreen() {
         >
           <Ionicons name="compass-outline" size={16} color="#10b981" />
           <Text style={{ color: "#111827", fontWeight: "600" }}>
-            {isSimulating ? "Simulación en curso" : "GPS conectado y listo"}
+            GPS conectado y listo
           </Text>
         </View>
 
-        {/* HUD izquierda */}
+        {/* Panel izq. (info) */}
         <View style={{ position: "absolute", left: 12, bottom: 20 }}>
           <View
             style={{
@@ -356,20 +330,70 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* FABs */}
+        {/* FABs con tips (sin icono del sistema) */}
         <View style={{ position: "absolute", right: 12, bottom: 20, gap: 10 }}>
-          <Fab onPress={cycleMapType}><Ionicons name="layers-outline" size={20} color="#111827" /></Fab>
-          <Fab onPress={recenter}><Ionicons name="locate" size={20} color="#111827" /></Fab>
-          {(recording || isSimulating)
-            ? <Fab onPress={stop} active><Ionicons name="stop" size={20} color="#ef4444" /></Fab>
-            : <Fab onPress={startAndRecenter}><Ionicons name="play" size={20} color="#111827" /></Fab>}
-          {dest && <Fab onPress={() => setDest(null)}><Ionicons name="trash-outline" size={20} color="#111827" /></Fab>}
-          {routePath && (
-            <Fab onPress={() => { setRoutePath(null); setRouteInfo(null); }}>
-              <Ionicons name="close-outline" size={20} color="#111827" />
+          <Fab
+            onPress={() => { tip("Cambiar tipo de mapa"); cycleMapType(); }}
+            onLongPress={() => tip("Alterna entre estándar, satélite y terreno")}
+          >
+            <Ionicons name="layers-outline" size={20} color="#111827" />
+          </Fab>
+
+          <Fab
+            onPress={() => { tip("Centrar en mi ubicación"); recenter(); }}
+            onLongPress={() => tip("Vuelve a centrar la cámara en tu posición")}
+          >
+            <Ionicons name="locate" size={20} color="#111827" />
+          </Fab>
+
+          {recording ? (
+            <Fab
+              onPress={() => { tip("Detener grabación"); toggleRecording(); }}
+              onLongPress={() => tip("Finaliza la grabación y ajusta a calles")}
+              active
+            >
+              <Ionicons name="stop" size={20} color="#ef4444" />
+            </Fab>
+          ) : (
+            <Fab
+              onPress={() => { tip("Iniciar grabación"); startAndRecenter(); }}
+              onLongPress={() => tip("Comienza a registrar tu recorrido")}
+            >
+              <Ionicons name="play" size={20} color="#111827" />
+            </Fab>
+          )}
+
+          {dest && (
+            <Fab
+              onPress={() => {
+                tip("Limpiar destino y ruta");
+                setDest(null); setRoutePath(null); setRouteInfo(null);
+              }}
+              onLongPress={() => tip("Quita el pin morado y la polilínea de Google")}
+            >
+              <Ionicons name="trash-outline" size={20} color="#111827" />
             </Fab>
           )}
         </View>
+
+        {/* --- Toast overlay propio --- */}
+        {hint && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              bottom: 90,
+              alignSelf: "center",
+              backgroundColor: "rgba(17,17,17,0.92)",
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderRadius: 12,
+              maxWidth: "85%",
+            }}
+          >
+            <Text style={{ color: "white", fontWeight: "600", textAlign: "center" }}>{hint}</Text>
+          </View>
+        )}
       </View>
     </View>
   );
