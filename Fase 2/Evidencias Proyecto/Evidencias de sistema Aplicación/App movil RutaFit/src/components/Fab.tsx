@@ -1,18 +1,22 @@
+// src/components/Fab.tsx
 import React from "react";
 import { Pressable } from "react-native";
 
 export default function Fab({
   onPress,
+  onLongPress,          // 👈 nuevo (opcional)
   children,
   active,
 }: {
   onPress: () => void;
+  onLongPress?: () => void;  // 👈 nuevo (opcional)
   children: React.ReactNode;
   active?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}   // 👈 habilita long-press
       style={{
         alignItems: "center",
         justifyContent: "center",
