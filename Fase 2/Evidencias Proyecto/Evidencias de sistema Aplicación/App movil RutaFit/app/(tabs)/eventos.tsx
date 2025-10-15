@@ -5,16 +5,17 @@ import { useState, useEffect } from "react";
 import type { Deporte } from "../../interface/Deporte";
 import type { Evento } from "../../interface/Evento";
 import { deporteService } from "../../services/DeporteService";
-import { eventoService } from "../../services/EventoService"; // <-- NUEVO
+import { eventoService } from "../../services/EventoService";
 import EventCard from "../../src/components/events/EventCard";
 import { useEvents } from "../../src/hooks/useEvents";
 import EventModal from "../../src/components/events/EventModal";
 import EventDetailsModal from "../../src/components/events/EventDetailsModal";
+import { auth } from "../../src/firebaseConfig";
 
 export default function EventosScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [deportes, setDeportes] = useState<Deporte[]>([]);
-  // Hook para manejar eventos (disponibles)
+  // “Disponibles”
   const { eventos, cargandoEventos, errorEventos, obtenerEventos } = useEvents(deportes);
   const [modalDetallesVisible, setModalDetallesVisible] = useState(false);
   const [eventoSeleccionado, setEventoSeleccionado] = useState<Evento | null>(null);
@@ -22,7 +23,7 @@ export default function EventosScreen() {
   // pestaña activa
   const [pestañaActiva, setPestañaActiva] = useState<"disponibles" | "mis-eventos">("disponibles");
 
-  // ==== NUEVO: estados para MIS EVENTOS ====
+  // “Mis eventos”
   const [misEventos, setMisEventos] = useState<Evento[]>([]);
   const [cargandoMis, setCargandoMis] = useState(false);
   const [errorMis, setErrorMis] = useState<string | null>(null);
@@ -32,6 +33,7 @@ export default function EventosScreen() {
     setModalDetallesVisible(true);
   };
 
+  // cargar catálogo de deportes
   useEffect(() => {
     const fetchDeportes = async () => {
       try {
@@ -44,19 +46,22 @@ export default function EventosScreen() {
     fetchDeportes();
   }, []);
 
-  // ==== NUEVO: cargar MIS EVENTOS al cambiar de pestaña ====
+  // cargar “Mis eventos” cuando se selecciona la pestaña
   useEffect(() => {
     const cargarMisEventos = async () => {
       try {
         setCargandoMis(true);
         setErrorMis(null);
 
-        // TODO: reemplaza por tu UID real (si ya tienes auth, úsalo de ahí)
-        const uid = "ijN7goYrDtQ5MmeZl29TLPfVLRs2";
+        const uid = auth.currentUser?.uid; // UID real del usuario logueado
+        if (!uid) {
+          setErrorMis("Inicia sesión para ver tus eventos.");
+          setMisEventos([]);
+          return;
+        }
 
         const res = await eventoService.getMisEventos(uid, 1, 50);
-        // el backend retorna { total, page, limit, data: Evento[] }
-        setMisEventos(res.data ?? []);
+        setMisEventos(res.data ?? []); // { total, page, limit, data }
       } catch (e) {
         setErrorMis("No se pudieron cargar tus eventos.");
       } finally {
@@ -131,9 +136,7 @@ export default function EventosScreen() {
                 <EventCard
                   key={evento._id || index}
                   evento={evento}
-                  onVerDetalles={(e) => {
-                    handleVerDetalles(e);
-                  }}
+                  onVerDetalles={handleVerDetalles}        // ← directo, sin wrapper
                   onUnirse={(id) => console.log("Unirse:", id)}
                 />
               ))
@@ -154,9 +157,7 @@ export default function EventosScreen() {
                 <EventCard
                   key={evento._id || index}
                   evento={evento}
-                  onVerDetalles={(e) => {
-                    handleVerDetalles(e);
-                  }}
+                  onVerDetalles={handleVerDetalles}        // ← directo, sin wrapper
                   onUnirse={(id) => console.log("Unirse (mis):", id)}
                 />
               ))
@@ -170,7 +171,8 @@ export default function EventosScreen() {
         onClose={() => setModalVisible(false)}
         onEventCreated={() => {
           setModalVisible(false);
-          obtenerEventos(); // refresca “Disponibles”; si quieres, también podrías recargar “Mis eventos”
+          obtenerEventos(); // refresca “Disponibles”
+          // si quieres refrescar “Mis eventos” luego de crear, puedes forzar setPestañaActiva("mis-eventos") y recargar
         }}
         deportes={deportes}
       />
