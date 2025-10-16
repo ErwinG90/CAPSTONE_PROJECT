@@ -1,7 +1,7 @@
 ﻿import { View, Text, Pressable, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { Deporte } from "../../interface/Deporte";
 import type { Evento } from "../../interface/Evento";
 import { deporteService } from "../../services/DeporteService";
@@ -11,6 +11,20 @@ import { useEvents } from "../../src/hooks/useEvents";
 import EventModal from "../../src/components/events/EventModal";
 import EventDetailsModal from "../../src/components/events/EventDetailsModal";
 import { auth } from "../../src/firebaseConfig";
+
+/** Helpers para enriquecer eventos con deporte/creador en el front */
+function withDeporte(e: Evento, deportes: Deporte[]): Evento {
+  const d = deportes.find(x => (x as any)._id === (e as any).deporte_id);
+  return d ? { ...e, deporte: d } : e;
+}
+
+function withCreador(e: Evento, currentUid?: string | null): Evento {
+  if ((e as any).createdBy && currentUid && (e as any).createdBy === currentUid) {
+    return { ...e, creador: { ...(e as any).creador, uid: (e as any).createdBy, nombre: "Tú" } as any };
+  }
+  // si backend ya manda creador.nombre, se respeta; si no, quedará “Usuario” en la tarjeta
+  return e;
+}
 
 export default function EventosScreen() {
   const [modalVisible, setModalVisible] = useState(false);
@@ -27,6 +41,8 @@ export default function EventosScreen() {
   const [misEventos, setMisEventos] = useState<Evento[]>([]);
   const [cargandoMis, setCargandoMis] = useState(false);
   const [errorMis, setErrorMis] = useState<string | null>(null);
+
+  const currentUid = auth.currentUser?.uid || "";
 
   const handleVerDetalles = (evento: Evento) => {
     setEventoSeleccionado(evento);
@@ -46,33 +62,56 @@ export default function EventosScreen() {
     fetchDeportes();
   }, []);
 
+  // función reutilizable para cargar “Mis eventos”
+  const cargarMisEventos = useCallback(async () => {
+    try {
+      setCargandoMis(true);
+      setErrorMis(null);
+
+      const uid = auth.currentUser?.uid;
+      if (!uid) {
+        setErrorMis("Inicia sesión para ver tus eventos.");
+        setMisEventos([]);
+        return;
+      }
+
+      const res = await eventoService.getMisEventos(uid, 1, 50);
+      setMisEventos(res.data ?? []); // { total, page, limit, data }
+    } catch (e) {
+      setErrorMis("No se pudieron cargar tus eventos.");
+    } finally {
+      setCargandoMis(false);
+    }
+  }, []);
+
   // cargar “Mis eventos” cuando se selecciona la pestaña
   useEffect(() => {
-    const cargarMisEventos = async () => {
-      try {
-        setCargandoMis(true);
-        setErrorMis(null);
-
-        const uid = auth.currentUser?.uid; // UID real del usuario logueado
-        if (!uid) {
-          setErrorMis("Inicia sesión para ver tus eventos.");
-          setMisEventos([]);
-          return;
-        }
-
-        const res = await eventoService.getMisEventos(uid, 1, 50);
-        setMisEventos(res.data ?? []); // { total, page, limit, data }
-      } catch (e) {
-        setErrorMis("No se pudieron cargar tus eventos.");
-      } finally {
-        setCargandoMis(false);
-      }
-    };
-
     if (pestañaActiva === "mis-eventos") {
       cargarMisEventos();
     }
-  }, [pestañaActiva]);
+  }, [pestañaActiva, cargarMisEventos]);
+
+  // cancelar evento (creador) o participación (participante)
+  const handleCancelar = async ({
+    evento,
+    motivo,
+  }: {
+    evento: Evento;
+    motivo: "event" | "participation";
+  }) => {
+    try {
+      if (motivo === "event") {
+        // TODO: await eventoService.cancelarEvento(evento._id);
+        console.log("Cancelar evento (creador):", evento._id);
+      } else {
+        // TODO: await eventoService.salirDeEvento(evento._id, currentUid);
+        console.log("Cancelar participación:", evento._id, "uid:", currentUid);
+      }
+      await cargarMisEventos(); // refrescar lista
+    } catch (e) {
+      console.log(e);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -93,30 +132,18 @@ export default function EventosScreen() {
       <View className="flex-row mx-6 mb-4">
         <Pressable
           onPress={() => setPestañaActiva("disponibles")}
-          className={`flex-1 py-3 px-4 rounded-full mr-2 ${
-            pestañaActiva === "disponibles" ? "bg-gray-200" : "bg-transparent"
-          }`}
+          className={`flex-1 py-3 px-4 rounded-full mr-2 ${pestañaActiva === "disponibles" ? "bg-gray-200" : "bg-transparent"}`}
         >
-          <Text
-            className={`text-center font-medium ${
-              pestañaActiva === "disponibles" ? "text-black" : "text-gray-500"
-            }`}
-          >
+          <Text className={`text-center font-medium ${pestañaActiva === "disponibles" ? "text-black" : "text-gray-500"}`}>
             Disponibles
           </Text>
         </Pressable>
 
         <Pressable
           onPress={() => setPestañaActiva("mis-eventos")}
-          className={`flex-1 py-3 px-4 rounded-full ml-2 ${
-            pestañaActiva === "mis-eventos" ? "bg-gray-200" : "bg-transparent"
-          }`}
+          className={`flex-1 py-3 px-4 rounded-full ml-2 ${pestañaActiva === "mis-eventos" ? "bg-gray-200" : "bg-transparent"}`}
         >
-          <Text
-            className={`text-center font-medium ${
-              pestañaActiva === "mis-eventos" ? "text-black" : "text-gray-500"
-            }`}
-          >
+          <Text className={`text-center font-medium ${pestañaActiva === "mis-eventos" ? "text-black" : "text-gray-500"}`}>
             Mis Eventos
           </Text>
         </Pressable>
@@ -132,14 +159,18 @@ export default function EventosScreen() {
             ) : eventos.length === 0 ? (
               <Text className="text-gray-400 text-center mt-20">No hay eventos disponibles</Text>
             ) : (
-              eventos.map((evento, index) => (
-                <EventCard
-                  key={evento._id || index}
-                  evento={evento}
-                  onVerDetalles={handleVerDetalles}        // ← directo, sin wrapper
-                  onUnirse={(id) => console.log("Unirse:", id)}
-                />
-              ))
+              eventos
+                .map(e => withDeporte(e, deportes))
+                .map((evento, index) => (
+                  <EventCard
+                    key={evento._id || index}
+                    evento={withCreador(evento, currentUid)}
+                    currentUid={currentUid}
+                    variant="disponibles"
+                    onVerDetalles={handleVerDetalles}
+                    onUnirse={(id) => console.log("Unirse:", id)}
+                  />
+                ))
             )}
           </>
         ) : (
@@ -153,14 +184,18 @@ export default function EventosScreen() {
                 Aún no tienes eventos creados o a los que te hayas unido
               </Text>
             ) : (
-              misEventos.map((evento, index) => (
-                <EventCard
-                  key={evento._id || index}
-                  evento={evento}
-                  onVerDetalles={handleVerDetalles}        // ← directo, sin wrapper
-                  onUnirse={(id) => console.log("Unirse (mis):", id)}
-                />
-              ))
+              misEventos
+                .map(e => withDeporte(e, deportes))
+                .map((evento, index) => (
+                  <EventCard
+                    key={evento._id || index}
+                    evento={withCreador(evento, currentUid)}
+                    currentUid={currentUid}
+                    variant="mis"
+                    onVerDetalles={handleVerDetalles}
+                    onCancelar={handleCancelar}
+                  />
+                ))
             )}
           </>
         )}
@@ -172,7 +207,9 @@ export default function EventosScreen() {
         onEventCreated={() => {
           setModalVisible(false);
           obtenerEventos(); // refresca “Disponibles”
-          // si quieres refrescar “Mis eventos” luego de crear, puedes forzar setPestañaActiva("mis-eventos") y recargar
+          if (pestañaActiva === "mis-eventos") {
+            cargarMisEventos(); // refresca “Mis eventos” si estás ahí
+          }
         }}
         deportes={deportes}
       />
