@@ -1,4 +1,4 @@
-﻿import { View, Text, Pressable, ScrollView } from "react-native";
+﻿import { View, Text, Pressable, ScrollView, Platform, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useState, useEffect, useCallback } from "react";
@@ -11,18 +11,50 @@ import { useEvents } from "../../src/hooks/useEvents";
 import EventModal from "../../src/components/events/EventModal";
 import EventDetailsModal from "../../src/components/events/EventDetailsModal";
 import { auth } from "../../src/firebaseConfig";
+import { getProfile } from "../../src/storage/localCache";
 
 /** Helpers para enriquecer eventos con deporte/creador en el front */
 function withDeporte(e: Evento, deportes: Deporte[]): Evento {
   const d = deportes.find(x => (x as any)._id === (e as any).deporte_id);
   return d ? { ...e, deporte: d } : e;
 }
+// Lee el estado desde varias posibles claves y lo normaliza
+function getEstado(e: any): string | null {
+  const raw =
+    e?.estado ??
+    e?.status ??
+    e?.estadoEvento ??
+    e?.detalle?.estado ??
+    null;
+
+  if (raw == null) return null;
+  return String(raw).normalize("NFKD").toLowerCase().trim();
+}
+
+function isProgramado(e: any): boolean {
+  const s = getEstado(e);
+  if (!s) return false; // null/undefined => no mostrar
+  // Estados aceptados como "vigente"
+  const activos = new Set(["programado", "scheduled", "activo", "active", "pendiente"]);
+  // Estados que NO se muestran
+  const noActivos = new Set([
+    "cancelado",
+    "canceled",
+    "finalizado",
+    "completado",
+    "cerrado",
+    "closed",
+  ]);
+
+  if (noActivos.has(s)) return false;
+  return activos.has(s);
+}
+
 
 function withCreador(e: Evento, currentUid?: string | null): Evento {
   if ((e as any).createdBy && currentUid && (e as any).createdBy === currentUid) {
     return { ...e, creador: { ...(e as any).creador, uid: (e as any).createdBy, nombre: "Tú" } as any };
   }
-  // si backend ya manda creador.nombre, se respeta; si no, quedará “Usuario” en la tarjeta
   return e;
 }
 
@@ -76,13 +108,16 @@ export default function EventosScreen() {
       }
 
       const res = await eventoService.getMisEventos(uid, 1, 50);
-      setMisEventos(res.data ?? []); // { total, page, limit, data }
-    } catch (e) {
+      const data = Array.isArray(res?.data) ? res.data : [];
+      // 👉 Solo programados
+      setMisEventos(data.filter(isProgramado));
+    } catch {
       setErrorMis("No se pudieron cargar tus eventos.");
     } finally {
       setCargandoMis(false);
     }
   }, []);
+
 
   // cargar “Mis eventos” cuando se selecciona la pestaña
   useEffect(() => {
@@ -91,7 +126,7 @@ export default function EventosScreen() {
     }
   }, [pestañaActiva, cargarMisEventos]);
 
-  // cancelar evento (creador) o participación (participante)
+  // 🔹 Cancelar: evento (creador) o participación (participante)
   const handleCancelar = async ({
     evento,
     motivo,
@@ -100,18 +135,91 @@ export default function EventosScreen() {
     motivo: "event" | "participation";
   }) => {
     try {
-      if (motivo === "event") {
-        // TODO: await eventoService.cancelarEvento(evento._id);
-        console.log("Cancelar evento (creador):", evento._id);
-      } else {
-        // TODO: await eventoService.salirDeEvento(evento._id, currentUid);
-        console.log("Cancelar participación:", evento._id, "uid:", currentUid);
+      // Asegurar UID válido para participación
+      let uid = auth.currentUser?.uid || "";
+      if (!uid) {
+        const profile = await getProfile();
+        uid = (profile as any)?.uid || "";
       }
-      await cargarMisEventos(); // refrescar lista
-    } catch (e) {
-      console.log(e);
+
+      if (motivo === "event") {
+        // El creador elimina/cancela el evento -> también requiere uid
+        await eventoService.cancelarEvento((evento as any)._id, uid);
+        Platform.OS === "web"
+          ? alert("Evento cancelado correctamente.")
+          : Alert.alert("Listo", "Evento cancelado correctamente.");
+      } else {
+        // Un participante se baja del evento
+        if (!uid) {
+          Platform.OS === "web"
+            ? alert("Debes estar autenticado para cancelar tu participación.")
+            : Alert.alert("Inicia sesión", "Debes estar autenticado para cancelar tu participación.");
+          return;
+        }
+        await eventoService.salirDeEvento((evento as any)._id, uid);
+        Platform.OS === "web"
+          ? alert("Has cancelado tu participación.")
+          : Alert.alert("Listo", "Has cancelado tu participación.");
+      }
+
+
+      // Refrescar listas
+      await cargarMisEventos(); // Mis eventos
+      await obtenerEventos();   // Disponibles (por si vuelve a aparecer)
+    } catch (e: any) {
+      Platform.OS === "web"
+        ? alert(e?.message || "No se pudo cancelar. Inténtalo nuevamente.")
+        : Alert.alert("Error", e?.message || "No se pudo cancelar. Inténtalo nuevamente.");
     }
   };
+
+  // 🔹 Unirse a evento (participar)
+  const handleUnirse = async (eventoId: string) => {
+    try {
+      // 1) Obtener UID (auth primero, si no desde cache local)
+      let uid = auth.currentUser?.uid || "";
+      if (!uid) {
+        const profile = await getProfile();
+        uid = (profile as any)?.uid || "";
+      }
+      if (!uid) {
+        Alert.alert("Inicia sesión", "Debes estar autenticado para unirte a un evento.");
+        return;
+      }
+
+      // 2) Llamar API de participar
+      await eventoService.participarEnEvento(eventoId, uid);
+
+      // 3) Feedback
+      if (Platform.OS === "web") {
+        alert("¡Te has unido al evento!");
+      } else {
+        Alert.alert("Listo", "Te uniste al evento con éxito.");
+      }
+
+      // 4) Refrescar listas
+      await obtenerEventos();
+      await cargarMisEventos();
+    } catch (e: any) {
+      if (Platform.OS === "web") {
+        alert(e?.message || "No se pudo unir al evento. Inténtalo nuevamente.");
+      } else {
+        Alert.alert("Error", e?.message || "No se pudo unir al evento. Inténtalo nuevamente.");
+      }
+    }
+  };
+
+  // 🔹 Filtrar “Disponibles” para mostrar SOLO "programado" y NO mostrar los ya creados/unidos por mí
+  const disponiblesFiltrados = (eventos || [])
+    .filter(isProgramado)
+    .filter((e) => {
+      const yaSoyCreador = (e as any).createdBy && (e as any).createdBy === currentUid;
+      const yaParticipo =
+        Array.isArray(e.participantes) && currentUid
+          ? (e.participantes as any[]).includes(currentUid as any)
+          : (e as any).role === "PARTICIPANT";
+      return !yaSoyCreador && !yaParticipo;
+    });
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -156,10 +264,10 @@ export default function EventosScreen() {
               <Text className="text-gray-400 text-center mt-20">Cargando eventos...</Text>
             ) : errorEventos ? (
               <Text className="text-red-500 text-center mt-20">{errorEventos}</Text>
-            ) : eventos.length === 0 ? (
+            ) : disponiblesFiltrados.length === 0 ? (
               <Text className="text-gray-400 text-center mt-20">No hay eventos disponibles</Text>
             ) : (
-              eventos
+              disponiblesFiltrados
                 .map(e => withDeporte(e, deportes))
                 .map((evento, index) => (
                   <EventCard
@@ -168,7 +276,7 @@ export default function EventosScreen() {
                     currentUid={currentUid}
                     variant="disponibles"
                     onVerDetalles={handleVerDetalles}
-                    onUnirse={(id) => console.log("Unirse:", id)}
+                    onUnirse={handleUnirse}
                   />
                 ))
             )}
