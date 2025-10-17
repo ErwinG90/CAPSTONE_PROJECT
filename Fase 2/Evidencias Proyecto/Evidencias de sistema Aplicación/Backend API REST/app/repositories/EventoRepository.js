@@ -46,6 +46,39 @@ class EventoRepository {
     console.info(`${new Date().toISOString()} [EventoRepository] [findBucketsByUser] [END] created=${createdLen} joined=${joinedLen}`);
     return result;
   }
+
+  // participar en evento 
+  async participate(eventId, uid) {
+    const MongoDBClientEvento = require('../clients/MongoDBClientEvento');
+    const MongoDBClientUser = require('../clients/MongoDBClientUser');
+
+    const eventoClient = new MongoDBClientEvento();
+    const userClient = new MongoDBClientUser();
+
+    // 1) leer evento
+    const ev = await eventoClient.findById(eventId);
+    if (!ev) return { ok: false, code: 'NOT_FOUND', message: 'Evento no encontrado' };
+
+    const participantes = Array.isArray(ev.participantes) ? ev.participantes : [];
+    const yaParticipa = participantes.includes(uid);
+
+    // 2) validación SIMPLE: if participantes >= max_participantes -> error
+    const max = Number(ev.max_participantes || 0); // si no está definido, se toma 0 (sin límite)
+    if (!yaParticipa && max > 0 && participantes.length >= max) {
+      return { ok: false, code: 'EVENT_FULL', message: 'El evento alcanzó el máximo de participantes' };
+    }
+
+    // 3) agregar (idempotente)
+    await eventoClient.addParticipant(eventId, uid);
+    await userClient.pushEvent(uid, eventId);
+
+    // 4) mensajes simples
+    if (yaParticipa) {
+      return { ok: true, code: 'ALREADY_JOINED', message: 'Ya estabas inscrito en el evento' };
+    }
+    return { ok: true, code: 'JOINED', message: 'Participación registrada' };
+  }
+
 }
 
 module.exports = EventoRepository;

@@ -89,8 +89,8 @@ class EventoController {
       const futureParam = req.query.future;
       const future =
         futureParam === undefined ? null :
-        futureParam === 'true' ? true :
-        futureParam === 'false' ? false : null;
+          futureParam === 'true' ? true :
+            futureParam === 'false' ? false : null;
 
       const eventoService = new EventoService();
       const eventoMapper = new EventoMapper();
@@ -142,6 +142,30 @@ class EventoController {
       next(error);
     }
   }
+
+
+  //  POST /eventos/:id/participar
+  async participate(req, res, next) {
+    try {
+      const { id } = req.params;
+      const uid = req.user?.uid || req.body?.uid || req.query?.uid;
+      if (!id) return res.status(400).json({ message: 'id de evento requerido' });
+      if (!uid) return res.status(400).json({ message: 'uid requerido' });
+
+      const service = new (require('../services/EventoService'))();
+      const { ok, code, message } = await service.participate(id, uid);
+
+      if (!ok) {
+        if (code === 'NOT_FOUND') return res.status(404).json({ message });
+        if (code === 'EVENT_FULL') return res.status(409).json({ message }); // conflicto: sin cupos
+        return res.status(400).json({ message });
+      }
+
+      // 200 si se unió o ya estaba
+      return res.status(200).json({ message, code });
+    } catch (e) { next(e); }
+  }
+
 }
 
 module.exports = EventoController;
