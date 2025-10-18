@@ -8,7 +8,7 @@ class EventoMapper {
         if (!dto) return null;
 
         return new Evento(
-            undefined,
+            dto._id || undefined,
             dto.nombre_evento,
             dto.deporte_id,
             dto.lugar,

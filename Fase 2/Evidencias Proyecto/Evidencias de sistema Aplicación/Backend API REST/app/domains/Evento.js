@@ -9,7 +9,7 @@ class Evento {
         this.descripcion = descripcion;
         this.createdBy = createdBy;
         this.participantes = participantes;
-        this.estado = estado;
+        this.estado = estado || "programado";
         this.createdAt = createdAt || new Date();
     }
 }

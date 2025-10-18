@@ -3,6 +3,7 @@ const EventoMapper = require('../mappers/EventoMapper');
 
 class EventoService {
   // crear evento
+  // crear evento
   async save(eventoDTO) {
     console.info(`${new Date().toISOString()} [EventoService] [save] [START] Save [${JSON.stringify(eventoDTO)}]`);
 
@@ -10,7 +11,12 @@ class EventoService {
     const eventoMapper = new EventoMapper();
 
     const eventoDomain = eventoMapper.toDomain(eventoDTO);
-    await eventoRepository.save(eventoDomain);
+    const eventoGuardado = await eventoRepository.save(eventoDomain); // <-- Recibe el evento con _id
+
+    // Agrega el evento al usuario creador
+    const MongoDBClientUser = require('../clients/MongoDBClientUser');
+    const userClient = new MongoDBClientUser();
+    await userClient.pushEvent(eventoDTO.createdBy, eventoGuardado._id);
 
     console.info(`${new Date().toISOString()} [EventoService] [save] [END] Save`);
   }
@@ -99,6 +105,12 @@ class EventoService {
   async participate(eventId, uid) {
     const repo = new (require('../repositories/EventoRepository'))();
     const result = await repo.participate(eventId, uid);
+    return result; // {ok, code, message}
+  }
+
+  async cancelParticipation(eventId, uid) {
+    const repo = new (require('../repositories/EventoRepository'))();
+    const result = await repo.cancelParticipation(eventId, uid);
     return result; // {ok, code, message}
   }
 

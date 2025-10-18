@@ -5,8 +5,9 @@ class EventoRepository {
   async save(evento) {
     console.info(`${new Date().toISOString()} [EventoRepository] [save] [START] Save [${JSON.stringify(evento)}]`);
     const mongoDBClientEvento = new MongoDBClientEvento();
-    await mongoDBClientEvento.save(evento);
+    const eventoGuardado = await mongoDBClientEvento.save(evento);
     console.info(`${new Date().toISOString()} [EventoRepository] [save] [END] Save`);
+    return eventoGuardado;
   }
 
   // listar todos (uso general)
@@ -77,6 +78,50 @@ class EventoRepository {
       return { ok: true, code: 'ALREADY_JOINED', message: 'Ya estabas inscrito en el evento' };
     }
     return { ok: true, code: 'JOINED', message: 'Participación registrada' };
+  }
+
+  // cancelar participación (responde solo mensaje)
+  async cancelParticipation(eventId, uid) {
+    console.log('Entrando a cancelParticipation:', eventId, uid);
+    const MongoDBClientEvento = require('../clients/MongoDBClientEvento');
+    const MongoDBClientUser = require('../clients/MongoDBClientUser');
+
+    const eventoClient = new MongoDBClientEvento();
+    const userClient = new MongoDBClientUser();
+
+    // 0) leer evento (para saber si ya participaba y si es creador)
+    const ev = await eventoClient.findById(eventId);
+    if (!ev) return { ok: false, code: 'NOT_FOUND', message: 'Evento no encontrado' };
+
+    const participantes = Array.isArray(ev.participantes) ? ev.participantes : [];
+    const yaParticipa = participantes.includes(uid);
+
+    // 1) quitar uid del evento (idempotente)
+    await eventoClient.removeParticipant(eventId, uid);
+
+    try {
+      // 2) quitar eventId del usuario (idempotente)
+      await userClient.pullEvent(uid, eventId);
+
+      // 3) si el usuario es el creador, cancelar el evento (sin importar si está en participantes)
+      console.log('Comparando creador:', ev.createdBy, 'con uid:', uid);
+      if (ev.createdBy === uid) {
+        await eventoClient.cancelEvent(eventId);
+        return { ok: true, code: 'EVENT_CANCELLED', message: 'Evento cancelado por el creador' };
+      }
+
+      // 4) si no era participante, mensaje correspondiente
+      if (!yaParticipa) {
+        return { ok: true, code: 'NOT_JOINED', message: 'No estabas inscrito; no había nada que cancelar' };
+      }
+
+      // 5) si era participante, mensaje estándar
+      return { ok: true, code: 'CANCELLED', message: 'Participación cancelada' };
+    } catch (e) {
+      // rollback simple (re-agregar si falla la actualización del user)
+      await eventoClient.addParticipant(eventId, uid).catch(() => { });
+      throw e;
+    }
   }
 
 }

@@ -35,7 +35,11 @@ class MongoDBClientEvento {
             if (!this.collection) await this.connect();
             const result = await this.collection.insertOne(evento);
             console.info(`${new Date().toISOString()} [MongoDBClientEvento] [save] [END] Save successful`);
-            return result;
+            // Devolver el evento con el _id generado
+            return {
+                ...evento,
+                _id: result.insertedId
+            };
         } catch (error) {
             console.error(`${new Date().toISOString()} [MongoDBClientEvento] [save] Error:`, error);
             throw error;
@@ -165,6 +169,39 @@ class MongoDBClientEvento {
             return res;
         } catch (e) {
             console.error(`[MongoDBClientEvento] addParticipant error:`, e);
+            throw e;
+        }
+    }
+
+    // quitar participante del evento
+    async removeParticipant(eventId, uid) {
+        try {
+            if (!this.collection) await this.connect();
+            const { ObjectId } = require('mongodb');
+            const res = await this.collection.updateOne(
+                { _id: new ObjectId(eventId) },
+                { $pull: { participantes: uid } }
+            );
+            return res;
+        } catch (e) {
+            console.error(`[MongoDBClientEvento] removeParticipant error:`, e);
+            throw e;
+        }
+    }
+
+    async cancelEvent(eventId) {
+        try {
+            if (!this.collection) await this.connect();
+            const { ObjectId } = require('mongodb');
+            console.log('Cancelando evento:', eventId);
+            const result = await this.collection.updateOne(
+                { _id: new ObjectId(eventId) },
+                { $set: { estado: "cancelado" } }
+            );
+            console.log('Resultado update:', result);
+            return result;
+        } catch (e) {
+            console.error(`[MongoDBClientEvento] cancelEvent error:`, e);
             throw e;
         }
     }
