@@ -166,6 +166,27 @@ class EventoController {
     } catch (e) { next(e); }
   }
 
+  //  DELETE /eventos/:id/participar
+  async cancelParticipation(req, res, next) {
+    try {
+      const { id } = req.params;
+      const uid = req.user?.uid || req.body?.uid || req.query?.uid;
+      if (!id) return res.status(400).json({ message: 'id de evento requerido' });
+      if (!uid) return res.status(400).json({ message: 'uid requerido' });
+
+      const service = new (require('../services/EventoService'))();
+      const { ok, code, message } = await service.cancelParticipation(id, uid);
+
+      if (!ok) {
+        if (code === 'NOT_FOUND') return res.status(404).json({ message });
+        return res.status(400).json({ message });
+      }
+
+      // 200 tanto si canceló como si no estaba inscrito
+      return res.status(200).json({ message, code });
+    } catch (e) { next(e); }
+  }
+
 }
 
 module.exports = EventoController;
