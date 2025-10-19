@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { ActivityIndicator, RefreshControl } from "react-native";
+import { useState, useEffect, useCallback } from 'react';
 import type { Evento } from '../../interface/Evento';
 import type { Deporte } from '../../interface/Deporte';
 import { eventoService } from '../../services/EventoService';
@@ -9,9 +10,11 @@ export const useEvents = (deportes: Deporte[]) => {
     const [eventos, setEventos] = useState<Evento[]>([]);
     const [cargandoEventos, setCargandoEventos] = useState(true);
     const [errorEventos, setErrorEventos] = useState<string | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
 
-    const obtenerEventos = async () => {
+    const obtenerEventos = useCallback(async () => {
         try {
+            setRefreshing(true);
             setCargandoEventos(true);
             const eventos = await eventoService.getEventos();
 
@@ -58,6 +61,8 @@ export const useEvents = (deportes: Deporte[]) => {
                             creador: { nombre: 'Usuario' },
                             deporte: { nombre: 'Deporte' }
                         };
+                    } finally {
+                        setRefreshing(false);
                     }
                 })
             );
@@ -69,12 +74,22 @@ export const useEvents = (deportes: Deporte[]) => {
             setErrorEventos('No se pudieron cargar los eventos');
         } finally {
             setCargandoEventos(false);
+            setRefreshing(false);
         }
-    };
+    }, [deportes]);
 
     useEffect(() => {
         obtenerEventos();
-    }, []); // Solo se ejecuta una vez al montar
+    }, [obtenerEventos]); // Ejecutar al montar y cuando cambien dependencias (ej. deportes)
+
+    const onRefresh = async () => {
+        try {
+            setRefreshing(true);
+            await obtenerEventos(); // tu función de carga
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     return {
         eventos,
