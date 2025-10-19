@@ -1,4 +1,4 @@
-﻿import { View, Text, Pressable, ScrollView, Platform, Alert } from "react-native";
+﻿import { View, Text, Pressable, ScrollView, Platform, Alert, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useState, useEffect, useCallback } from "react";
@@ -74,6 +74,8 @@ export default function EventosScreen() {
   const [cargandoMis, setCargandoMis] = useState(false);
   const [errorMis, setErrorMis] = useState<string | null>(null);
 
+  const [refreshing, setRefreshing] = useState(false); // para pull-to-refresh que afecta a ambas listas
+
   const currentUid = auth.currentUser?.uid || "";
 
   const handleVerDetalles = (evento: Evento) => {
@@ -97,6 +99,7 @@ export default function EventosScreen() {
   // función reutilizable para cargar “Mis eventos”
   const cargarMisEventos = useCallback(async () => {
     try {
+      setRefreshing(true);
       setCargandoMis(true);
       setErrorMis(null);
 
@@ -115,9 +118,9 @@ export default function EventosScreen() {
       setErrorMis("No se pudieron cargar tus eventos.");
     } finally {
       setCargandoMis(false);
+      setRefreshing(false);
     }
   }, []);
-
 
   // cargar “Mis eventos” cuando se selecciona la pestaña
   useEffect(() => {
@@ -125,6 +128,23 @@ export default function EventosScreen() {
       cargarMisEventos();
     }
   }, [pestañaActiva, cargarMisEventos]);
+
+  // cargar "Disponibles" cuando se selecciona la pestaña
+  useEffect(() => {
+    if (pestañaActiva === "disponibles") {
+      // obtenerEventos viene de useEvents y fue memoizado con useCallback
+      obtenerEventos();
+    }
+  }, [pestañaActiva, obtenerEventos]);
+
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await cargarMisEventos(); // tu función de carga
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // 🔹 Cancelar: evento (creador) o participación (participante)
   const handleCancelar = async ({
@@ -162,10 +182,10 @@ export default function EventosScreen() {
           : Alert.alert("Listo", "Has cancelado tu participación.");
       }
 
-
       // Refrescar listas
       await cargarMisEventos(); // Mis eventos
       await obtenerEventos();   // Disponibles (por si vuelve a aparecer)
+
     } catch (e: any) {
       Platform.OS === "web"
         ? alert(e?.message || "No se pudo cancelar. Inténtalo nuevamente.")
@@ -222,6 +242,9 @@ export default function EventosScreen() {
     });
 
   return (
+
+
+
     <SafeAreaView className="flex-1 bg-white">
       <View className="flex-row justify-between items-center px-6 py-4">
         <View>
@@ -239,7 +262,14 @@ export default function EventosScreen() {
 
       <View className="flex-row mx-6 mb-4">
         <Pressable
-          onPress={() => setPestañaActiva("disponibles")}
+          onPress={() => {
+            // Si ya está activa, forzar recarga. Si no, cambiar pestaña y el useEffect se encargará.
+            if (pestañaActiva === "disponibles") {
+              obtenerEventos();
+            } else {
+              setPestañaActiva("disponibles");
+            }
+          }}
           className={`flex-1 py-3 px-4 rounded-full mr-2 ${pestañaActiva === "disponibles" ? "bg-gray-200" : "bg-transparent"}`}
         >
           <Text className={`text-center font-medium ${pestañaActiva === "disponibles" ? "text-black" : "text-gray-500"}`}>
@@ -248,7 +278,14 @@ export default function EventosScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => setPestañaActiva("mis-eventos")}
+          onPress={() => {
+            // Si ya está activa, forzar recarga. Si no, cambiar pestaña y el useEffect se encargará.
+            if (pestañaActiva === "mis-eventos") {
+              cargarMisEventos();
+            } else {
+              setPestañaActiva("mis-eventos");
+            }
+          }}
           className={`flex-1 py-3 px-4 rounded-full ml-2 ${pestañaActiva === "mis-eventos" ? "bg-gray-200" : "bg-transparent"}`}
         >
           <Text className={`text-center font-medium ${pestañaActiva === "mis-eventos" ? "text-black" : "text-gray-500"}`}>
@@ -257,11 +294,32 @@ export default function EventosScreen() {
         </Pressable>
       </View>
 
-      <ScrollView className="flex-1 px-6">
+      <ScrollView className="flex-1 px-6"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              try {
+                setRefreshing(true);
+                if (pestañaActiva === "disponibles") {
+                  await obtenerEventos();
+                } else {
+                  await cargarMisEventos();
+                }
+              } finally {
+                setRefreshing(false);
+              }
+            }}
+          />
+        }
+      >
         {pestañaActiva === "disponibles" ? (
           <>
             {cargandoEventos ? (
-              <Text className="text-gray-400 text-center mt-20">Cargando eventos...</Text>
+              <View className="items-center justify-center h-40">
+                <ActivityIndicator size="large" color="#111" />
+                <Text className="mt-2 text-gray-500">Cargando eventos...</Text>
+              </View>
             ) : errorEventos ? (
               <Text className="text-red-500 text-center mt-20">{errorEventos}</Text>
             ) : disponiblesFiltrados.length === 0 ? (

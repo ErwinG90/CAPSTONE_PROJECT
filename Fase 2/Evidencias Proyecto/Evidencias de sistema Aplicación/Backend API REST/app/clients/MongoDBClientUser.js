@@ -91,6 +91,36 @@ class MongoDBClientUser {
             this.collection = null;
         }
     }
+
+    //  agregar id de evento al usuario
+    async pushEvent(uid, eventId) {
+        try {
+            if (!this.collection) await this.connect();
+            const { ObjectId } = require('mongodb');
+            return await this.collection.updateOne(
+                { _id: uid },                    // uid es string en _id
+                { $addToSet: { eventos: new ObjectId(eventId) } }
+            );
+        } catch (e) {
+            console.error(`[MongoDBClientUser] pushEvent error:`, e);
+            throw e;
+        }
+    }
+
+    // quitar id de evento del usuario
+    async pullEvent(uid, eventId) {
+        try {
+            if (!this.collection) await this.connect();
+            const { ObjectId } = require('mongodb');
+            return await this.collection.updateOne(
+                { _id: uid },
+                { $pull: { eventos: new ObjectId(eventId) } }
+            );
+        } catch (e) {
+            console.error(`[MongoDBClientUser] pullEvent error:`, e);
+            throw e;
+        }
+    }
 }
 
 module.exports = MongoDBClientUser;
