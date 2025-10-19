@@ -80,6 +80,7 @@ class EventoRepository {
     return { ok: true, code: 'JOINED', message: 'Participación registrada' };
   }
 
+
   // cancelar participación (responde solo mensaje)
   async cancelParticipation(eventId, uid) {
     console.log('Entrando a cancelParticipation:', eventId, uid);
@@ -124,6 +125,6 @@ class EventoRepository {
     }
   }
 
-}
 
+}
 module.exports = EventoRepository;

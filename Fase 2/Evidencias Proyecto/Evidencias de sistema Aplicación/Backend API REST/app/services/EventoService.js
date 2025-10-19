@@ -3,7 +3,6 @@ const EventoMapper = require('../mappers/EventoMapper');
 
 class EventoService {
   // crear evento
-  // crear evento
   async save(eventoDTO) {
     console.info(`${new Date().toISOString()} [EventoService] [save] [START] Save [${JSON.stringify(eventoDTO)}]`);
 
@@ -113,6 +112,7 @@ class EventoService {
     const result = await repo.cancelParticipation(eventId, uid);
     return result; // {ok, code, message}
   }
+
 
 }
 

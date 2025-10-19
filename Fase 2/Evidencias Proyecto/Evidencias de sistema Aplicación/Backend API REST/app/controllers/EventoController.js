@@ -143,7 +143,6 @@ class EventoController {
     }
   }
 
-
   //  POST /eventos/:id/participar
   async participate(req, res, next) {
     try {
@@ -186,6 +185,7 @@ class EventoController {
       return res.status(200).json({ message, code });
     } catch (e) { next(e); }
   }
+
 
 }
 
