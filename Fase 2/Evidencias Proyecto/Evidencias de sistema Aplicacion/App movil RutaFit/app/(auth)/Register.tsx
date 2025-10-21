@@ -41,8 +41,8 @@ function Banner({
     type === "success"
       ? { bg: "bg-emerald-100/90", border: "border-emerald-500/40", text: "text-emerald-800" }
       : type === "error"
-      ? { bg: "bg-rose-100/90", border: "border-rose-500/40", text: "text-rose-800" }
-      : { bg: "bg-sky-100/90", border: "border-sky-500/40", text: "text-sky-800" };
+        ? { bg: "bg-rose-100/90", border: "border-rose-500/40", text: "text-rose-800" }
+        : { bg: "bg-sky-100/90", border: "border-sky-500/40", text: "text-sky-800" };
 
   return (
     <View className={`mb-3 rounded-2xl px-3 py-2 border ${styles.bg} ${styles.border}`}>
@@ -235,7 +235,7 @@ export default function RegisterScreen() {
       const dd = String(fechaNacimiento.getDate()).padStart(2, "0");
 
       try {
-        await axios.post("https://ms-rutafit-neg.vercel.app/ms-rutafit-neg/users", {
+        await axios.post("https://capstone-project-3-13xo.onrender.com/ms-rutafit-neg/users", {
           uid: u.uid,
           nombre,
           apellido,

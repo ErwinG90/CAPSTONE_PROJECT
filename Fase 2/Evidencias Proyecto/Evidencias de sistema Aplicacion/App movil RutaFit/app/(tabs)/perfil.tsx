@@ -17,7 +17,7 @@ import EditProfileModal from "../../src/components/profile/EditProfileModal";
 import { updateUserProfile, updateUserAvatar } from "../../services/UserService";
 
 
-const API_BASE = "https://ms-rutafit-neg.vercel.app/ms-rutafit-neg";
+const API_BASE = "https://capstone-project-3-13xo.onrender.com/ms-rutafit-neg";
 
 export default function PerfilScreen() {
   const router = useRouter();
