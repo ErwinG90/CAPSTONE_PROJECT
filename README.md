@@ -60,7 +60,8 @@ Permite **registrar, crear y compartir rutas deportivas** (ciclismo, trekking, r
 ### 🧰 Stack técnico (versiones)
 
 ```bash
-**Backend:** `express@5.1.0` · `cors@2.8.5` · `dotenv@17.2.2` · `mongodb@6.20.0` · `swagger-ui-express@5.0.1` · `axios@1.12.2` · **dev:** `jest@30.1.3` · `nodemon@3.0.1`
+**Backend:** `express@5.1.0` · `cors@2.8.5` · `dotenv@17.2.2` · `mongodb@6.20.0` · `swagger-ui-express@5.0.1` · `axios@1.12.2`
+
 
 **Frontend:** `expo@54.0.17` · `react@19.1.0` · `react-native@0.81.5` · `expo-router@6.0.13` · `firebase@12.3.0` · `tailwindcss@3.4.17` · `nativewind@4.2.1`
 ```

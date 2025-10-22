@@ -11,14 +11,30 @@ const config = {
     requestTimeout: 10 * 1000 // 10 seconds
   },
   swagger: {
-    title: 'MS Locations Neg',
-    description: 'Microservicio para registrar y consultar localizaciones',
+    title: 'RutaFit API',
+    description: 'Microservicio para usuarios, eventos, deportes y niveles',
     version: '1.0.0',
     endpoint: '/api-docs',
-    document: swaggerDocument
+    document: swaggerDocument,
+    uiOptions: {                       // opciones Swagger UI (tema RutaFit)
+      customSiteTitle: 'RutaFit API — Docs',
+      customCss: `
+        .opblock-summary-method { background:#22c55e !important; }
+        .btn.execute{ background:#22c55e !important; border:0 !important; }
+        .topbar { background: transparent !important; }
+      `,
+      explorer: true,
+      swaggerOptions: {
+        docExpansion: 'list',
+        persistAuthorization: true,
+        displayOperationId: true,
+        defaultModelsExpandDepth: 0,
+      },
+    },
   },
   cors: {
-    origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:8081'],
+    origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:8081', 'https://capstone-project-3-13xo.onrender.com'],
+
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
   },

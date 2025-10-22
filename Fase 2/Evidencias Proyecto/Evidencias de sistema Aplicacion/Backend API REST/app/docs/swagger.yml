@@ -1,324 +1,448 @@
 openapi: 3.0.4
 info:
-  title: Monster Hunter API
-  description: Microservicio para el consumo de servicios de Monster Hunter API
+  title: RutaFit API
+  description: API para usuarios, eventos, tipos de deporte y niveles (sin autenticación).
   version: 1.0.0
-  contact:
-    name: TU NOMBRE
-    email: tuemail@mail.com
-  license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
-externalDocs:
-  description: Monster Hunter World Database API
-  url: https://docs.mhw-db.com/
+
 servers:
-  - url: http://localhost:3000/ms-monsterhunter-neg
+  - url: http://localhost:3000/ms-rutafit-neg
     description: Local
+  - url: https://capstone-project-3-13xo.onrender.com/ms-rutafit-neg
+    description: Producción (Render)
+
 tags:
-  - name: health
-    description: Operaciones relacionadas al estado del servicio
-  - name: monstruos
-    description: Operaciones relacionadas a monstruos
+  - name: usuarios
+    description: Gestión básica de usuarios
+  - name: deportes
+    description: Catálogo de tipos de deporte
+  - name: niveles
+    description: Catálogo de niveles de experiencia
+  - name: eventos
+    description: Gestión de eventos y participación
+
 paths:
-  /health:
+  # ------------------ USUARIOS ------------------
+  /users:
     get:
-      summary: Retorna el estado del servicio
-      description: Retorna el estado del servicio
-      operationId: getHealth
-      tags:
-        - health
+      tags: [usuarios]
+      summary: Traer todos los usuarios
       responses:
-        '200':
-          description: Servicio activo
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Health'
-  /monstruos:
-    get:
-      summary: Obtiene todos los monstruos
-      description: Retorna una lista con todos los monstruos
-      operationId: getAllMonstruos
-      tags:
-        - monstruos
-      externalDocs:
-        description: Monster Hunter World Database - Monsters Endpoint
-        url: https://docs.mhw-db.com/#monsters
-      responses:
-        '200':
-          description: Retorno exitoso de los monstruos
+        "200":
+          description: Lista de usuarios
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: '#/components/schemas/Monstruo'
-        '500':
-          description: Error interno del servidor
+                items: { $ref: "#/components/schemas/Usuario" }
+              examples:
+                ejemplo:
+                  value:
+                    - _id: "oG2iP81bPadEch2c9mPiwejAsTr1"
+                      nombre: "Merlu Cindy"
+                      apellido: "Beyer Ulloa"
+                      email: "ci.beyer@duocuc.cl"
+                      fechaNacimiento: "2025-10-10"
+                      genero: "mujer"
+                      deporteFavorito: "68db058ff227b0dedcbcafec"
+                      nivelExperiencia: "68db0d46f227b0dedcbcafff"
+                      fechaRegistro: "2025-10-11T05:12:03.787Z"
+                      rutas: []
+                      eventos: ["68f1796608971e9b32658691"]
+    post:
+      tags: [usuarios]
+      summary: Guardar usuario
+      description: Crea un usuario. **No** se envían `_id`, `fechaRegistro` ni campos de sistema.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UsuarioCreateInput" }
+            examples:
+              ejemplo:
+                value:
+                  nombre: "Merlu Cindy"
+                  apellido: "Beyer Ulloa"
+                  email: "ci.beyer@duocuc.cl"
+                  fechaNacimiento: "2025-10-10"
+                  genero: "mujer"
+                  deporteFavorito: "68db058ff227b0dedcbcafec"
+                  nivelExperiencia: "68db0d46f227b0dedcbcafff"
+      responses:
+        "201":
+          description: Usuario guardado
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/ServerError'
-  /monstruos/{id}:
+              schema: { $ref: "#/components/schemas/Usuario" }
+              examples:
+                ejemplo:
+                  value:
+                    _id: "oG2iP81bPadEch2c9mPiwejAsTr1"
+                    nombre: "Merlu"
+                    apellido: "Beyer Ulloa"
+                    email: "ci.beyer@duocuc.cl"
+                    fechaNacimiento: "2025-10-10"
+                    genero: "mujer"
+                    deporteFavorito: "68db058ff227b0dedcbcafec"
+                    nivelExperiencia: "68db0d46f227b0dedcbcafff"
+                    fechaRegistro: "2025-10-11T05:12:03.787Z"
+                    rutas: []
+                    eventos: []
+
+  /users/{id}:
     get:
-      summary: Obtiene un monstruo en especifico
-      description: Retorna un monstruo en especifico basado en su id
-      operationId: getMonstruoById
-      tags:
-        - monstruos
-      externalDocs:
-        description: Monster Hunter World Database - Monster by ID
-        url: https://docs.mhw-db.com/#get-a-specific-monster
+      tags: [usuarios]
+      summary: Traer usuario por ID
       parameters:
         - in: path
           name: id
-          schema:
-            type: integer
-            minimum: 1
           required: true
-          description: Id del monstruo
-          example: 1
+          schema: { type: string }
+          example: "oG2iP81bPadEch2c9mPiwejAsTr1"
       responses:
-        '200':
-          description: Retorno exitoso del monstruo
+        "200":
+          description: Usuario
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+              examples:
+                ejemplo:
+                  value:
+                    _id: "oG2iP81bPadEch2c9mPiwejAsTr1"
+                    nombre: "Merlu Cindy"
+                    apellido: "Beyer Ulloa"
+                    email: "ci.beyer@duocuc.cl"
+                    fechaNacimiento: "2025-10-10"
+                    genero: "mujer"
+                    deporteFavorito: "68db058ff227b0dedcbcafec"
+                    nivelExperiencia: "68db0d46f227b0dedcbcafff"
+                    fechaRegistro: "2025-10-11T05:12:03.787Z"
+                    rutas: []
+                    eventos: ["68f1796608971e9b32658691"]
+        "404":
+          description: No encontrado
+
+  # ------------------ DEPORTES ------------------
+  /tipos-deporte:
+    get:
+      tags: [deportes]
+      summary: Traer todos los deportes
+      responses:
+        "200":
+          description: Lista de deportes
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Monstruo'
-        '400':
-          description: Parametros invalidos
+                type: array
+                items: { $ref: "#/components/schemas/Deporte" }
+              examples:
+                ejemplo:
+                  value:
+                    - _id: "68db058ff227b0dedcbcafec"
+                      nombre: "Ciclismo"
+                      icono: "bicycle"
+                      color: "#22c55e"
+
+  # ------------------ NIVELES ------------------
+  /nivel-experiencia:
+    get:
+      tags: [niveles]
+      summary: Traer todos los niveles de experiencia
+      responses:
+        "200":
+          description: Lista de niveles
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ParametersError'
-        '404':
-          description: Monstruo no encontrado
-        '500':
-          description: Error interno del servidor
+                type: array
+                items: { $ref: "#/components/schemas/Nivel" }
+              examples:
+                ejemplo:
+                  value:
+                    - _id: "68db0d46f227b0dedcbcafff"
+                      nombre: "Principiante"
+                      descripcion: "Comenzando en la disciplina"
+
+  # ------------------ EVENTOS ------------------
+  /eventos:
+    get:
+      tags: [eventos]
+      summary: Traer todos los eventos
+      description: Retorna todos los eventos (sin filtros).
+      responses:
+        "200":
+          description: Lista de eventos
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ServerError'
+                type: array
+                items: { $ref: "#/components/schemas/Evento" }
+              examples:
+                ejemplo:
+                  value:
+                    - _id: "68f1796608971e9b32658691"
+                      nombre_evento: "dd"
+                      deporte_id: "68db058ff227b0dedcbcafec"
+                      lugar: "d"
+                      fecha_evento: "2025-10-22T23:01:00.000Z"
+                      max_participantes: 2
+                      descripcion: ""
+                      createdBy: "iyo0GLHvlCaEjhhXBVZ1c1mLYZ63"
+                      participantes: []
+                      estado: "cancelado"
+                      createdAt: "2025-10-16T23:01:57.552Z"
+    post:
+      tags: [eventos]
+      summary: Guardar evento (crear)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventoCreateInput" }
+            examples:
+              ejemplo:
+                value:
+                  nombre_evento: "Corrida por los cachorros"
+                  deporte_id: "68db058ff227b0dedcbcafec"
+                  lugar: "costanera chiguayante"
+                  fecha_evento: "2025-12-01T09:00:00.000Z"
+                  max_participantes: 10
+                  descripcion: "Corrida mirando un paisaje hermoso, ven a disfrutar."
+                  createdBy: "ijN7goYrDtQ5MmeZl29TLPfVLRs2"
+      responses:
+        "201":
+          description: Evento creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Evento" }
+              examples:
+                ejemplo:
+                  value:
+                    _id: "68f07e35cf083f75f825f949"
+                    nombre_evento: "Corrida por los cachorros"
+                    deporte_id: "68db058ff227b0dedcbcafec"
+                    lugar: "costanera chiguayante"
+                    fecha_evento: "2025-12-01T09:00:00.000Z"
+                    max_participantes: 10
+                    descripcion: "Corrida mirando un paisaje hermoso, ven a disfrutar."
+                    createdBy: "ijN7goYrDtQ5MmeZl29TLPfVLRs2"
+                    participantes: []
+                    estado: "programado"
+                    createdAt: "2025-10-22T22:29:53.382Z"
+
+  /eventos/{id}:
+    get:
+      tags: [eventos]
+      summary: Traer evento por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+          example: "68f07e35cf083f75f825f949"
+      responses:
+        "200":
+          description: Evento
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Evento" }
+              examples:
+                ejemplo:
+                  value:
+                    _id: "68f1796608971e9b32658691"
+                    nombre_evento: "dd"
+                    deporte_id: "68db058ff227b0dedcbcafec"
+                    lugar: "d"
+                    fecha_evento: "2025-10-22T23:01:00.000Z"
+                    max_participantes: 2
+                    descripcion: ""
+                    createdBy: "iyo0GLHvlCaEjhhXBVZ1c1mLYZ63"
+                    participantes: []
+                    estado: "cancelado"
+                    createdAt: "2025-10-16T23:01:57.552Z"
+        "404":
+          description: No encontrado
+
+  /eventos/{id}/participar:
+    post:
+      tags: [eventos]
+      summary: Participar en evento
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+          example: "68f07e35cf083f75f825f949"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ParticipacionInput" }
+            examples:
+              ejemplo:
+                value:
+                  uid: "oG2iP81bPadEch2c9mPiwejAsTr1"
+      responses:
+        "200":
+          description: Participación registrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Evento" }
+    delete:
+      tags: [eventos]
+      summary: Cancelar participación en evento
+      description: Envía el UID del usuario que cancela su participación.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+          example: "68f07e35cf083f75f825f949"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ParticipacionInput" }
+            examples:
+              ejemplo:
+                value:
+                  uid: "oG2iP81bPadEch2c9mPiwejAsTr1"
+      responses:
+        "200":
+          description: Participación cancelada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Evento" }
+
 components:
   schemas:
-    Monstruo:
+    # -------- Usuarios --------
+    UsuarioCreateInput:
+      type: object
+      required:
+        [
+          nombre,
+          apellido,
+          email,
+          fechaNacimiento,
+          genero,
+          deporteFavorito,
+          nivelExperiencia,
+        ]
+      properties:
+        nombre: { type: string, example: "Merlu Cindy" }
+        apellido: { type: string, example: "Beyer Ulloa" }
+        email: { type: string, format: email, example: "ci.beyer@duocuc.cl" }
+        fechaNacimiento: { type: string, format: date, example: "2025-10-10" }
+        genero: { type: string, example: "mujer" }
+        deporteFavorito: { type: string, example: "68db058ff227b0dedcbcafec" }
+        nivelExperiencia: { type: string, example: "68db0d46f227b0dedcbcafff" }
+
+    Usuario:
       type: object
       properties:
-        id:
-          type: integer
-          example: 1
-        nombre:
-          type: string
-          example: Aptonoth
+        _id: { type: string, example: "oG2iP81bPadEch2c9mPiwejAsTr1" }
+        nombre: { type: string, example: "Merlu Cindy" }
+        apellido: { type: string, example: "Beyer Ulloa" }
+        email: { type: string, format: email, example: "ci.beyer@duocuc.cl" }
+        fechaNacimiento: { type: string, format: date, example: "2025-10-10" }
+        genero: { type: string, example: "mujer" }
+        deporteFavorito: { type: string, example: "68db058ff227b0dedcbcafec" }
+        nivelExperiencia: { type: string, example: "68db0d46f227b0dedcbcafff" }
+        fechaRegistro:
+          {
+            type: string,
+            format: date-time,
+            example: "2025-10-11T05:12:03.787Z",
+          }
+        rutas:
+          type: array
+          items: { type: string }
+          example: []
+        eventos:
+          type: array
+          items: { type: string }
+          example: ["68f1796608971e9b32658691"]
+
+    # -------- Deportes / Niveles --------
+    Deporte:
+      type: object
+      properties:
+        _id: { type: string, example: "68db058ff227b0dedcbcafec" }
+        nombre: { type: string, example: "Ciclismo" }
+        icono: { type: string, example: "bicycle" }
+        color: { type: string, example: "#22c55e" }
+
+    Nivel:
+      type: object
+      properties:
+        _id: { type: string, example: "68db0d46f227b0dedcbcafff" }
+        nombre: { type: string, example: "Principiante" }
+        descripcion: { type: string, example: "Comenzando en la disciplina" }
+
+    # -------- Eventos --------
+    EventoCreateInput:
+      type: object
+      required:
+        [
+          nombre_evento,
+          deporte_id,
+          lugar,
+          fecha_evento,
+          max_participantes,
+          createdBy,
+        ]
+      properties:
+        nombre_evento: { type: string, example: "Corrida por los cachorros" }
+        deporte_id: { type: string, example: "68db058ff227b0dedcbcafec" }
+        lugar: { type: string, example: "costanera chiguayante" }
+        fecha_evento:
+          {
+            type: string,
+            format: date-time,
+            example: "2025-12-01T09:00:00.000Z",
+          }
+        max_participantes: { type: integer, example: 10 }
         descripcion:
-          type: string
-          example: Docile herbivores that g… will flee immediately
-        tipo:
-          type: string
-          example: small
-        especie:
-          type: string
-          example: herbivore
-        elementos:
+          {
+            type: string,
+            example: "Corrida mirando un paisaje hermoso, ven a disfrutar.",
+          }
+        createdBy: { type: string, example: "ijN7goYrDtQ5MmeZl29TLPfVLRs2" }
+
+    ParticipacionInput:
+      type: object
+      required: [uid]
+      properties:
+        uid: { type: string, example: "oG2iP81bPadEch2c9mPiwejAsTr1" }
+
+    Evento:
+      type: object
+      properties:
+        _id: { type: string, example: "68f1796608971e9b32658691" }
+        nombre_evento: { type: string, example: "dd" }
+        deporte_id: { type: string, example: "68db058ff227b0dedcbcafec" }
+        lugar: { type: string, example: "d" }
+        fecha_evento:
+          {
+            type: string,
+            format: date-time,
+            example: "2025-10-22T23:01:00.000Z",
+          }
+        max_participantes: { type: integer, example: 2 }
+        descripcion: { type: string, example: "" }
+        createdBy: { type: string, example: "iyo0GLHvlCaEjhhXBVZ1c1mLYZ63" }
+        participantes:
           type: array
-          items:
-            type: string
-            example: earth
-        ubicaciones:
-          type: array
-          items:
-            $ref: '#/components/schemas/Ubicacion'
-        resistencias:
-          type: array
-          items:
-            $ref: '#/components/schemas/Resistencia'
-        dolencias:
-          type: array
-          items:
-            $ref: '#/components/schemas/Dolencia'
-        debilidades:
-          type: array
-          items:
-            $ref: '#/components/schemas/Debilidad'
-        recompensas:
-          type: array
-          items:
-            $ref: '#/components/schemas/Recompensa'
-    Ubicacion:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        nombre:
+          description: Lista de UIDs de participantes
+          items: { type: string, example: "oG2iP81bPadEch2c9mPiwejAsTr1" }
+          example: []
+        estado:
           type: string
-          example: Ancient Forest
-        recuentoZona:
-          type: integer
-          example: 17
-    Resistencia:
-      type: object
-      properties:
-        elemento:
-          type: string
-          example: thunder
-        condicion:
-          type: string
-          example: ''
-    Dolencia:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        nombre:
-          type: string
-          example: Paralysis
-        descripcion:
-          type: string
-          example: Paralysis renders the hu…alyzed if they are hit
-        recuperacion:
-          $ref: '#/components/schemas/Recuperacion'
-        proteccion:
-          $ref: '#/components/schemas/Proteccion'
-    Debilidad:
-      type: object
-      properties:
-        elemento:
-          type: string
-          example: water
-        estrellas:
-          type: integer
-          example: 3
-        condicion:
-          type: string
-          example: ''
-    Recompensa:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        item:
-          $ref: '#/components/schemas/Item'
-    Recuperacion:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/Item'
-    Proteccion:
-      type: object
-      properties:
-        habilidades:
-          type: array
-          items:
-            $ref: '#/components/schemas/Habilidad'
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/Item'
-    Item:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        nombre:
-          type: string
-          example: Lightcrystal
-        descripcion:
-          type: string
-          example: A precious and extremely…sed for crafting tools
-        valor:
-          type: integer
-          example: 1150
-        rareza:
-          type: integer
-          example: 5
-        limite:
-          type: integer
-          example: 99
-    Habilidad:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        nombre:
-          type: string
-          example: Paralysis Resistance
-        descripcion:
-          type: string
-          example: Reduces the duration of paralysis
-    Validation:
-      type: object
-      properties:
-        campo:
-          type: string
-          example: id
-        mensaje:
-          type: string
-          example: Id debe ser numerico
-    Dependency:
-      type: object
-      properties:
-        name:
-          type: string
-          example: Monster Hunter API
-        status:
-          type: string
-          example: UP
-        responseTime:
-          type: integer
-          example: 120
-        url:
-          type: string
-          example: https://api.mhw-db.com
-    Health:
-      type: object
-      properties:
-        status:
-          type: string
-          example: UP
-        timestamp:
-          type: string
-          format: date-time
-          example: '2023-10-10T10:00:00.000Z'
-        version:
-          type: string
-          example: '1.0.0'
-        uptime:
-          type: integer
-          example: 3600000
-        dependencies:
-          type: array
-          items:
-            $ref: '#/components/schemas/Dependency'
-    ParametersError:
-      type: object
-      properties:
-        detalles:
-          type: array
-          items:
-            $ref: '#/components/schemas/Validation'
-    BusinessError:
-        type: object
-        properties:
-            codigo:
-                type: string
-                example: 'MH001'
-            mensaje:
-                type: string
-                example: Error de negocio
-    ServerError:
-        type: object
-        properties:
-            codigo:
-                type: string
-                example: '500'
-            mensaje:
-                type: string
-                example: Ha ocurrido un error interno
+          enum: [programado, cancelado, finalizado]
+          example: "cancelado"
+        createdAt:
+          {
+            type: string,
+            format: date-time,
+            example: "2025-10-16T23:01:57.552Z",
+          }
