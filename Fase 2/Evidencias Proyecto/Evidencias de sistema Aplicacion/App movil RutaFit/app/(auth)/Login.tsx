@@ -9,7 +9,7 @@ import { validateEmail, validatePassword } from "../../src/validators";
 import axios from "axios";
 import { saveProfile } from "../../src/storage/localCache";
 
-const API_BASE = "https://ms-rutafit-neg.vercel.app/ms-rutafit-neg";
+const API_BASE = "https://capstone-project-3-13xo.onrender.com/ms-rutafit-neg";
 
 export default function LoginScreen() {
   const router = useRouter();

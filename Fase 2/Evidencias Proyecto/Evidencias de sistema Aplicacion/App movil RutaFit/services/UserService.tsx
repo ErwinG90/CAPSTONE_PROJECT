@@ -1,6 +1,6 @@
 // services/UserService.ts  (agrega esto junto al updateUserAvatar)
 import axios from "axios";
-const API_BASE = "https://ms-rutafit-neg.vercel.app/ms-rutafit-neg";
+const API_BASE = "https://capstone-project-3-13xo.onrender.com/ms-rutafit-neg";
 
 export type UpdateUserPayload = {
     nombre?: string;

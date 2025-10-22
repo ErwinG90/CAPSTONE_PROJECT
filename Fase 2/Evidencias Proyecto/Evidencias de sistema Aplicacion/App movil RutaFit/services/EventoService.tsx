@@ -4,7 +4,7 @@ class EventoService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = "https://ms-rutafit-neg.vercel.app/ms-rutafit-neg";
+    this.baseUrl = "https://capstone-project-3-13xo.onrender.com/ms-rutafit-neg";
   }
 
   /**
