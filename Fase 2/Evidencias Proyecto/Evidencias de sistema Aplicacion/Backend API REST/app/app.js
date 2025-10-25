@@ -5,7 +5,7 @@ const config = require('./configs/config');
 const requestLoggerMiddleware = require('./middlewares/request-logger.middleware');
 const errorMiddleware = require('./middlewares/error.middleware');
 
-server.use(config.server.context + config.swagger.endpoint, swaggerUi.serve, swaggerUi.setup(config.swagger.document));
+server.use(config.server.context + config.swagger.endpoint, swaggerUi.serve, swaggerUi.setup(config.swagger.document, config.swagger.uiOptions));
 
 server.use(requestLoggerMiddleware);
 
@@ -28,6 +28,10 @@ server.use(config.server.context + config.routes.tiposDeporte, require('./routes
 // eventos routes
 // ms-rutafit-neg/eventos --> eventoRoutes.js
 server.use(config.server.context + config.routes.eventos, require('./routes/eventoRoutes'));
+
+// rutas routes
+// ms-rutafit-neg/rutas --> rutaRoutes.js
+server.use(config.server.context + config.routes.rutas, require('./routes/rutaRoutes'));
 
 server.use(errorMiddleware);
 

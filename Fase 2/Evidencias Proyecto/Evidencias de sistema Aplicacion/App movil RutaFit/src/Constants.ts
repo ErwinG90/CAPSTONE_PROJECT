@@ -5,7 +5,7 @@ export type Genero = "mujer" | "hombre";
 export const SOLO_LETRAS = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]+$/;
 
 // ===== URLs DE API =====
-export const API_BASE_URL = "https://ms-rutafit-neg.vercel.app/ms-rutafit-neg";
+export const API_BASE_URL = "https://capstone-project-3-13xo.onrender.com/ms-rutafit-neg";
 
 export const API_ENDPOINTS = {
   TIPOS_DEPORTE: `${API_BASE_URL}/tipos-deporte`,
