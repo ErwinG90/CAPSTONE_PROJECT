@@ -43,7 +43,8 @@ const config = {
     users: '/users',
     nivelExperiencia: '/nivel-experiencia',
     tiposDeporte: '/tipos-deporte',
-    eventos: '/eventos'
+    eventos: '/eventos',
+    rutas: '/rutas'
   },
   cache: {
     time: 5 * 60 * 1000 // 5 minutes

@@ -35,6 +35,11 @@ export default function HomeScreen() {
   const [mapType, setMapType] = useState<MapType>("standard");
   const { recording, points, lastPoint, start, stop, distanceMeters } = useRouteRecorder();
 
+  // Agrega este useEffect justo después:
+  useEffect(() => {
+    console.log("Puntos de la ruta:", points);
+  }, [points]);
+
   const [dest, setDest] = useState<{ latitude: number; longitude: number } | null>(null);
 
   // Ruta de Google (al destino)
