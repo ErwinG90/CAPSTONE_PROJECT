@@ -13,7 +13,7 @@ class RutaController {
             const data = req.body;
             const rutaDTO = new RutaDTO({
                 _id: undefined, // autogenerado
-                id_creador: new ObjectId(data.id_creador), // <-- conversión para pasar de string a objectid para que lo aguante mongo segun el schema definido
+                id_creador: data.id_creador, // <-- acepta string (UID Firebase)
                 nombre_ruta: data.nombre_ruta,
                 recorrido: data.recorrido,
                 descripcion: data.descripcion,
