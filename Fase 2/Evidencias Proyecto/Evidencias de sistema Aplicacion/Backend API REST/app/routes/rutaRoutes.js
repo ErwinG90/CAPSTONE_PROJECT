@@ -10,4 +10,7 @@ router.post('/', (req, res, next) => rutaController.save(req, res, next));
 // listar todas las rutas
 router.get('/', (req, res, next) => rutaController.findAll(req, res, next));
 
+// listar rutas del usuario 
+router.get('/mias', (req, res, next) => rutaController.findMine(req, res, next));
+
 module.exports = router;
