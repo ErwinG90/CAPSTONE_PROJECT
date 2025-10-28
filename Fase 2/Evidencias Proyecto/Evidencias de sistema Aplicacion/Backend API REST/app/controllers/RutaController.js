@@ -1,57 +1,79 @@
+// app/controllers/RutaController.js
 const ParametersError = require('../errors/ParametersError');
 const RutaDTO = require('../dtos/RutaDTO');
 const RutaService = require('../services/RutaService');
 const RutaMapper = require('../mappers/RutaMapper');
-const { ObjectId } = require('mongodb');
 
 class RutaController {
-    // crear ruta
-    async save(req, res, next) {
-        try {
-            console.info(`${new Date().toISOString()} [RutaController] [save] [START] Save`);
+  // crear ruta
+  async save(req, res, next) {
+    try {
+      console.info(`${new Date().toISOString()} [RutaController] [save] [START] Save`);
 
-            const data = req.body;
-            const rutaDTO = new RutaDTO({
-                _id: undefined, // autogenerado
-                id_creador: data.id_creador, // <-- acepta string (UID Firebase)
-                nombre_ruta: data.nombre_ruta,
-                recorrido: data.recorrido,
-                descripcion: data.descripcion,
-                nivel_dificultad: data.nivel_dificultad,
-                distancia_km: data.distancia_km,
-                tipo_deporte: data.tipo_deporte,
-                valoraciones: data.valoraciones || [],
-                promedio_valoracion: data.promedio_valoracion || 0,
-                fecha_creacion: data.fecha_creacion
-            });
+      const data = req.body;
+      const rutaDTO = new RutaDTO({
+        _id: undefined, // autogenerado
+        id_creador: data.id_creador, // UID Firebase
+        nombre_ruta: data.nombre_ruta,
+        recorrido: data.recorrido,
+        descripcion: data.descripcion,
+        nivel_dificultad: data.nivel_dificultad,
+        distancia_km: data.distancia_km,
+        tipo_deporte: data.tipo_deporte,
+        valoraciones: data.valoraciones || [],
+        promedio_valoracion: data.promedio_valoracion || 0,
+        fecha_creacion: data.fecha_creacion,
+      });
 
-            const rutaService = new RutaService();
-            const rutaMapper = new RutaMapper();
+      const rutaService = new RutaService();
+      const rutaMapper = new RutaMapper();
 
-            const savedRuta = await rutaService.save(rutaMapper.toDomain(rutaDTO));
+      const savedRuta = await rutaService.save(rutaMapper.toDomain(rutaDTO));
 
-            console.info(`${new Date().toISOString()} [RutaController] [save] [END] Save`);
-            res.status(201).json(rutaMapper.toDTO(savedRuta));
-        } catch (error) {
-            next(error);
-        }
+      console.info(`${new Date().toISOString()} [RutaController] [save] [END] Save`);
+      res.status(201).json(rutaMapper.toDTO(savedRuta));
+    } catch (error) {
+      next(error);
     }
+  }
 
-    // listar todas las rutas
-    async findAll(req, res, next) {
-        try {
-            const rutaService = new RutaService();
-            const rutas = await rutaService.findAll();
-            const rutaMapper = new RutaMapper();
+  // listar todas las rutas
+  async findAll(req, res, next) {
+    try {
+      const rutaService = new RutaService();
+      const rutaMapper = new RutaMapper();
 
-            // dominio -> dto
-            const rutasDTO = rutas.map(ruta => rutaMapper.toDTO(ruta));
+      const rutas = await rutaService.findAll();
+      const rutasDTO = rutas.map((ruta) => rutaMapper.toDTO(ruta));
 
-            res.status(200).json(rutasDTO);
-        } catch (error) {
-            next(error);
-        }
+      res.status(200).json(rutasDTO);
+    } catch (error) {
+      next(error);
     }
+  }
+
+  // listar SOLO las rutas del usuario (mías)
+  // GET /rutas/mias?uid=...&page=1&limit=20&q=senderismo
+  async findMine(req, res, next) {
+    try {
+      const uid   = req.query.uid || req.headers['x-uid'] || req.user?.uid || null;
+      const page  = Number(req.query.page ?? 1);
+      const limit = Number(req.query.limit ?? 20);
+      const q     = req.query.q;
+
+      if (!uid) throw new ParametersError('Se requiere uid');
+
+      const rutaService = new RutaService();
+      const rutaMapper  = new RutaMapper();
+
+      const result = await rutaService.findMine({ uid, page, limit, q });
+      const dataDTO = (result.data || []).map((d) => rutaMapper.toDTO(d));
+
+      return res.status(200).json({ ...result, data: dataDTO });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = RutaController;
