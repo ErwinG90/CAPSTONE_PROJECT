@@ -1,8 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {View, Text,Pressable,ScrollView,RefreshControl,ActivityIndicator,TextInput,Alert,Platform,} from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  RefreshControl,
+  ActivityIndicator,
+  TextInput,
+  Alert,
+  Platform,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { auth } from "../../src/firebaseConfig";
+import { getProfile } from "../../src/storage/localCache";
+import { rutaService } from "../../services/RutaService";
 
 /** ===== Tipos UI mínimos ===== */
 type RutaUI = {
@@ -17,12 +29,27 @@ type RutaUI = {
   creadorId?: string;
 };
 
-/** ===== Helpers de formato ===== */
+/** ===== Helpers ===== */
 const fmtKm = (v?: number) => (typeof v === "number" ? `${v.toFixed(1)} km` : "—");
 const fmtRating = (r?: number, c?: number) =>
   r == null ? "—" : `${r.toFixed(1)}${c ? ` (${c})` : ""}`;
 
-/** ===== Card simple (reutilizable) ===== */
+/** Mapear documento/DTO del backend -> UI */
+function adaptRutaToUI(r: any): RutaUI {
+  return {
+    id: r._id ?? r.id ?? String(Math.random()),
+    nombre: r.nombre_ruta ?? r.nombre ?? "Ruta",
+    descripcion: r.descripcion ?? "",
+    deporte: r.tipo_deporte ?? r.deporte ?? undefined,
+    nivel: r.nivel_dificultad ?? r.nivel ?? undefined,
+    distanciaKm: r.distancia_km ?? r.distanciaKm ?? undefined,
+    rating: r.promedio_valoracion ?? r.rating ?? undefined,
+    ratingCount: Array.isArray(r.valoraciones) ? r.valoraciones.length : undefined,
+    creadorId: r.id_creador ?? r.creadorId ?? undefined,
+  };
+}
+
+/** ===== Card ===== */
 function RouteRow({ ruta, onPress }: { ruta: RutaUI; onPress?: () => void }) {
   return (
     <Pressable
@@ -90,7 +117,7 @@ function RouteRow({ ruta, onPress }: { ruta: RutaUI; onPress?: () => void }) {
   );
 }
 
-/** ===== Pantalla principal (sin datos aún) ===== */
+/** ===== Pantalla ===== */
 export default function RutasScreen() {
   const [tab, setTab] = useState<"todas" | "mias" | "populares">("todas");
   const [busqueda, setBusqueda] = useState("");
@@ -99,27 +126,62 @@ export default function RutasScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const currentUid = auth.currentUser?.uid ?? "";
+  const [currentUid, setCurrentUid] = useState<string>(auth.currentUser?.uid ?? "");
+
+  // intentar sacar uid desde cache si auth aún no está listo
+  useEffect(() => {
+    (async () => {
+      if (!currentUid) {
+        const profile = await getProfile().catch(() => null);
+        const uidFromCache = (profile as any)?.uid;
+        if (uidFromCache) setCurrentUid(uidFromCache);
+      }
+    })();
+  }, [currentUid]);
+
+  // Debounce para búsqueda
+  const searchTimer = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (tab !== "todas" && tab !== "mias") return; // populares aún no implementado
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      load();
+    }, 300);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busqueda]);
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, currentUid]);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // TODO: conecta aquí tu RutaService cuando tengas backend:
-      // if (tab === "todas") setList(await rutaService.getRutas(1, 50, busqueda));
-      // if (tab === "mias") setList(await rutaService.getMisRutas(currentUid, 1, 50));
-      // if (tab === "populares") setList(await rutaService.getPopulares(1, 50));
-      // Por ahora, sin datos:
-      setList([]);
-
+      if (tab === "todas") {
+        const res = await rutaService.getRutas(); // Ruta[]
+        setList(res.map(adaptRutaToUI));
+      } else if (tab === "mias") {
+        if (!currentUid) {
+          setList([]);
+          setError("Inicia sesión para ver tus rutas.");
+        } else {
+          const data = await rutaService.getMisRutas(currentUid, 1, 50, busqueda);
+          setList((data ?? []).map(adaptRutaToUI));
+        }
+      } else {
+        // Populares: implementa cuando tengas endpoint
+        setList([]);
+      }
     } catch (e: any) {
+      console.error(e);
       setError(e?.message ?? "No se pudieron cargar las rutas.");
+      setList([]);
     } finally {
       setLoading(false);
     }
@@ -146,13 +208,12 @@ export default function RutasScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      {/* Header (sin botón Crear) */}
+      {/* Header */}
       <View className="flex-row justify-between items-center px-6 py-4">
         <View>
           <Text className="text-3xl font-bold text-green-500 drop-shadow-lg">Rutafit</Text>
           <Text className="text-sm text-black-500 mt-1">{headerSubtitle}</Text>
         </View>
-        {/* Espacio reservado por si agregas algo en el futuro */}
         <View style={{ width: 1 }} />
       </View>
 
@@ -190,9 +251,9 @@ export default function RutasScreen() {
               if (tab === t) load();
               else setTab(t);
             }}
-            className={`flex-1 py-3 px-4 rounded-full ${i === 0 ? "mr-2" : i === 2 ? "ml-2" : "mx-2"} ${
-              tab === t ? "bg-gray-200" : "bg-transparent"
-            }`}
+            className={`flex-1 py-3 px-4 rounded-full ${
+              i === 0 ? "mr-2" : i === 2 ? "ml-2" : "mx-2"
+            } ${tab === t ? "bg-gray-200" : "bg-transparent"}`}
           >
             <Text
               className={`text-center font-medium ${
@@ -216,12 +277,10 @@ export default function RutasScreen() {
             <Text className="mt-2 text-gray-500">Cargando rutas...</Text>
           </View>
         ) : error ? (
-          <Text className="text-red-500 text-center mt-20">{error}</Text>
+          <Text className="text-red-500 text-center mt-20 px-4">{error}</Text>
         ) : list.length === 0 ? (
           <Text className="text-gray-400 text-center mt-20">
-            {tab === "mias"
-              ? "Aún no tienes rutas creadas"
-              : "No hay rutas disponibles"}
+            {tab === "mias" ? "Aún no tienes rutas creadas" : "No hay rutas disponibles"}
           </Text>
         ) : (
           list.map((r) => (

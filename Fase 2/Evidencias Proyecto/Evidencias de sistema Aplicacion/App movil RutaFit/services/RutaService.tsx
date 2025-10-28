@@ -30,6 +30,28 @@ export class RutaService {
             throw new Error("No se pudieron cargar las rutas");
         }
     }
+    /** 🔹 Obtener SOLO las rutas creadas por el usuario logeado */
+  async getMisRutas(uid: string, page = 1, limit = 50, q?: string): Promise<Ruta[]> {
+    try {
+      if (!uid) throw new Error("UID requerido para obtener tus rutas");
+
+      const url = `${this.baseUrl}/rutas/mias?uid=${uid}&page=${page}&limit=${limit}${
+        q ? `&q=${encodeURIComponent(q)}` : ""
+      }`;
+
+      console.log("RutaService: Obteniendo rutas del usuario...", url);
+      const response = await axios.get(url);
+
+      // El backend devuelve { data: [...], total, totalPages, ... }
+      const rutas = response.data?.data ?? response.data;
+      console.log("RutaService: Mis rutas obtenidas:", rutas);
+
+      return rutas;
+    } catch (error: any) {
+      console.error("RutaService: Error obteniendo rutas del usuario:", error);
+      throw new Error("No se pudieron cargar tus rutas");
+    }
+  }
 }
 
 export const rutaService = new RutaService();
