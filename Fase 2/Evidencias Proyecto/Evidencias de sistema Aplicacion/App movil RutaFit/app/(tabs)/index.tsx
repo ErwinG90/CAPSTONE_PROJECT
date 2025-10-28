@@ -14,6 +14,9 @@ import MapHeader from "../../src/features/map/MapHeader";
 import Fab from "../../src/components/Fab";
 import { useRouteRecorder } from "../../src/hooks/useRouterRecorder";
 import { getDirectionsRoute, snapToRoads } from "../../src/utils/google";
+import { TrackPoint } from "../../src/hooks/useRouterRecorder";
+
+import GuardarRutaForm from "../../src/components/GuardarRutaForm";
 
 export default function HomeScreen() {
   const { locationStatus } = usePermissionsStore();
@@ -34,6 +37,9 @@ export default function HomeScreen() {
 
   const [mapType, setMapType] = useState<MapType>("standard");
   const { recording, points, lastPoint, start, stop, distanceMeters } = useRouteRecorder();
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [puntosRecorrido, setPuntosRecorrido] = useState<TrackPoint[]>([]);
+  const [distancia, setDistancia] = useState(0);
 
   // Agrega este useEffect justo después:
   useEffect(() => {
@@ -98,6 +104,9 @@ export default function HomeScreen() {
         console.warn("snapToRoads error:", e);
         Alert.alert("Snap to Roads", String(e?.message ?? e));
       }
+      setPuntosRecorrido(points); // o snappedPath si prefieres la ruta ajustada
+      setDistancia(distanceMeters);
+      setMostrarFormulario(true);
     } else {
       await startAndRecenter();
     }
@@ -171,7 +180,21 @@ export default function HomeScreen() {
   }
 
   const { latitude, longitude } = location.coords;
-
+  if (mostrarFormulario) {
+    return (
+      <GuardarRutaForm
+        puntosGPS={puntosRecorrido.map(p => [p.longitude, p.latitude])} // transforma TrackPoint[] a [number, number][]
+        distancia={distancia}
+        onGuardar={(ruta) => {
+          setMostrarFormulario(false);
+          // Aquí puedes enviar la ruta al backend si lo necesitas
+        }}
+        onDescartar={() => {
+          setMostrarFormulario(false);
+        }}
+      />
+    );
+  }
   return (
     <View style={{ flex: 1, backgroundColor: "white" }}>
       <MapHeader displayName={displayName} />

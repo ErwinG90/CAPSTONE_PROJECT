@@ -55,6 +55,47 @@ class MongoDBClientRuta {
             throw error;
         }
     }
-}
+    // Listar rutas del creador 
+    async findByCreator({ uid, page = 1, limit = 20, q } = {}) {
+        try {
+        if (!uid) throw new Error('uid es requerido');
+        if (!this.collection) await this.connect();
+
+        const col = this.collection;
+
+        const p = Math.max(1, Number(page));
+        const l = Math.max(1, Number(limit));
+        const skip = (p - 1) * l;
+
+        const filter = { id_creador: uid };
+        if (q && String(q).trim()) {
+            const rx = new RegExp(String(q).trim(), 'i');
+            Object.assign(filter, {
+            $or: [
+                { nombre_ruta: rx },
+                { descripcion: rx },
+                { tipo_deporte: rx },
+            ],
+            });
+        }
+
+        const cursor = col
+            .find(filter)
+            .sort({ fecha_creacion: -1, _id: -1 })
+            .skip(skip)
+            .limit(l);
+
+        const [items, total] = await Promise.all([
+            cursor.toArray(),
+            col.countDocuments(filter),
+        ]);
+
+        return { items, total, page: p, limit: l };
+        } catch (error) {
+        console.error(`${new Date().toISOString()} [MongoDBClientRuta] [findByCreator] Error:`, error);
+        throw error;
+        }
+    }
+    }
 
 module.exports = MongoDBClientRuta;
