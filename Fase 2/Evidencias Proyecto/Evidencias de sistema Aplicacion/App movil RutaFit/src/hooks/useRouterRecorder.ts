@@ -70,6 +70,13 @@ export function useRouteRecorder() {
     setIsSimulating(false);
   };
 
+  // Nueva función: resetear/limpiar todo el estado
+  const reset = () => {
+    stop(); // detener grabación si estaba activa
+    setPoints([]);
+    setLastPoint(null);
+  };
+
   // Simula movimiento en línea recta
   const simulateTo = async (
     from: LatLng | null,
@@ -139,7 +146,8 @@ export function useRouteRecorder() {
     distanceMeters,
     start,
     stop,
+    reset, // 👈 Nueva función para limpiar todo
     simulateTo,
-    simulatePath, // 👈 asegúrate de que esto esté realmente exportado
+    simulatePath,
   };
 }

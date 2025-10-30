@@ -36,7 +36,7 @@ export default function HomeScreen() {
   const mapRef = useRef<MapView>(null);
 
   const [mapType, setMapType] = useState<MapType>("standard");
-  const { recording, points, lastPoint, start, stop, distanceMeters } = useRouteRecorder();
+  const { recording, points, lastPoint, start, stop, reset, distanceMeters } = useRouteRecorder();
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [puntosRecorrido, setPuntosRecorrido] = useState<TrackPoint[]>([]);
   const [distancia, setDistancia] = useState(0);
@@ -187,10 +187,20 @@ export default function HomeScreen() {
         distancia={distancia}
         onGuardar={(ruta) => {
           setMostrarFormulario(false);
+          // Limpiar todo después de guardar
+          reset(); // Limpia points, lastPoint del hook
+          setPuntosRecorrido([]);
+          setDistancia(0);
+          setSnappedPath(null);
           // Aquí puedes enviar la ruta al backend si lo necesitas
         }}
         onDescartar={() => {
           setMostrarFormulario(false);
+          // Limpiar todo después de descartar
+          reset(); // Limpia points, lastPoint del hook
+          setPuntosRecorrido([]);
+          setDistancia(0);
+          setSnappedPath(null);
         }}
       />
     );
