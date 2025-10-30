@@ -1,8 +1,19 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {View, Text,Pressable,ScrollView,RefreshControl,ActivityIndicator,TextInput,Alert,Platform,} from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  RefreshControl,
+  ActivityIndicator,
+  TextInput,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { auth } from "../../src/firebaseConfig";
+import { getProfile } from "../../src/storage/localCache";
+import { rutaService } from "../../services/RutaService";
+import { router } from "expo-router";
 
 /** ===== Tipos UI mínimos ===== */
 type RutaUI = {
@@ -15,29 +26,53 @@ type RutaUI = {
   rating?: number;
   ratingCount?: number;
   creadorId?: string;
+  fechaCreacion?: string | Date;
+  recorrido?: { type: "LineString"; coordinates: [number, number][] };
 };
 
-/** ===== Helpers de formato ===== */
+/** ===== Helpers ===== */
 const fmtKm = (v?: number) => (typeof v === "number" ? `${v.toFixed(1)} km` : "—");
 const fmtRating = (r?: number, c?: number) =>
   r == null ? "—" : `${r.toFixed(1)}${c ? ` (${c})` : ""}`;
 
-/** ===== Card simple (reutilizable) ===== */
+/** Mapear documento/DTO del backend -> UI */
+function adaptRutaToUI(r: any): RutaUI {
+  return {
+    id: r._id ?? r.id ?? String(Math.random()),
+    nombre: r.nombre_ruta ?? r.nombre ?? "Ruta",
+    descripcion: r.descripcion ?? "",
+    deporte: r.tipo_deporte ?? r.deporte ?? undefined,
+    nivel: r.nivel_dificultad ?? r.nivel ?? undefined,
+    distanciaKm: r.distancia_km ?? r.distanciaKm ?? undefined,
+    rating: r.promedio_valoracion ?? r.rating ?? undefined,
+    ratingCount: Array.isArray(r.valoraciones) ? r.valoraciones.length : undefined,
+    creadorId: r.id_creador ?? r.creadorId ?? undefined,
+    fechaCreacion: r.fecha_creacion ?? undefined,
+    recorrido: r.recorrido,
+  };
+}
+
+/** ===== Card ===== */
 function RouteRow({ ruta, onPress }: { ruta: RutaUI; onPress?: () => void }) {
+  const [isPressed, setIsPressed] = React.useState(false);
+
   return (
     <Pressable
       onPress={onPress}
-      className="rounded-2xl bg-white border border-gray-200 mb-4 px-5 py-4"
-      android_ripple={{ color: "#e5e7eb" }}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      className={`rounded-2xl bg-white mb-4 px-5 py-4 shadow-sm ${isPressed ? "border-2 border-green-500" : "border border-gray-200"
+        }`}
+      android_ripple={{ color: "#bbf7d0", borderless: false }}
     >
       <View className="flex-row items-start">
         <View className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center mr-3">
           <Ionicons name="map-outline" size={18} />
         </View>
 
-        <View className="flex-1">
+        <View className="flex-1 mr-2">
           <View className="flex-row items-center justify-between">
-            <Text className="text-base font-semibold" numberOfLines={1}>
+            <Text className="text-base font-semibold flex-1" numberOfLines={1}>
               {ruta.nombre}
             </Text>
             <View className="flex-row items-center ml-2">
@@ -85,12 +120,17 @@ function RouteRow({ ruta, onPress }: { ruta: RutaUI; onPress?: () => void }) {
             </View>
           </View>
         </View>
+
+        {/* Chevron indicador visual */}
+        <View className="justify-center">
+          <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+        </View>
       </View>
     </Pressable>
   );
 }
 
-/** ===== Pantalla principal (sin datos aún) ===== */
+/** ===== Pantalla ===== */
 export default function RutasScreen() {
   const [tab, setTab] = useState<"todas" | "mias" | "populares">("todas");
   const [busqueda, setBusqueda] = useState("");
@@ -99,27 +139,62 @@ export default function RutasScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const currentUid = auth.currentUser?.uid ?? "";
+  const [currentUid, setCurrentUid] = useState<string>(auth.currentUser?.uid ?? "");
+
+  // intentar sacar uid desde cache si auth aún no está listo
+  useEffect(() => {
+    (async () => {
+      if (!currentUid) {
+        const profile = await getProfile().catch(() => null);
+        const uidFromCache = (profile as any)?.uid;
+        if (uidFromCache) setCurrentUid(uidFromCache);
+      }
+    })();
+  }, [currentUid]);
+
+  // Debounce para búsqueda
+  const searchTimer = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (tab !== "todas" && tab !== "mias") return; // populares aún no implementado
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      load();
+    }, 300);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busqueda]);
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, currentUid]);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // TODO: conecta aquí tu RutaService cuando tengas backend:
-      // if (tab === "todas") setList(await rutaService.getRutas(1, 50, busqueda));
-      // if (tab === "mias") setList(await rutaService.getMisRutas(currentUid, 1, 50));
-      // if (tab === "populares") setList(await rutaService.getPopulares(1, 50));
-      // Por ahora, sin datos:
-      setList([]);
-
+      if (tab === "todas") {
+        const res = await rutaService.getRutas(); // Ruta[]
+        setList(res.map(adaptRutaToUI));
+      } else if (tab === "mias") {
+        if (!currentUid) {
+          setList([]);
+          setError("Inicia sesión para ver tus rutas.");
+        } else {
+          const data = await rutaService.getMisRutas(currentUid, 1, 50, busqueda);
+          setList((data ?? []).map(adaptRutaToUI));
+        }
+      } else {
+        // Populares: implementa cuando tengas endpoint
+        setList([]);
+      }
     } catch (e: any) {
+      console.error(e);
       setError(e?.message ?? "No se pudieron cargar las rutas.");
+      setList([]);
     } finally {
       setLoading(false);
     }
@@ -139,20 +214,19 @@ export default function RutasScreen() {
       tab === "todas"
         ? "Descubre y explora rutas increíbles"
         : tab === "mias"
-        ? "Tus rutas creadas o guardadas"
-        : "Rutas más valoradas",
+          ? "Tus rutas creadas o guardadas"
+          : "Rutas más valoradas",
     [tab]
   );
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      {/* Header (sin botón Crear) */}
+      {/* Header */}
       <View className="flex-row justify-between items-center px-6 py-4">
         <View>
           <Text className="text-3xl font-bold text-green-500 drop-shadow-lg">Rutafit</Text>
           <Text className="text-sm text-black-500 mt-1">{headerSubtitle}</Text>
         </View>
-        {/* Espacio reservado por si agregas algo en el futuro */}
         <View style={{ width: 1 }} />
       </View>
 
@@ -190,14 +264,12 @@ export default function RutasScreen() {
               if (tab === t) load();
               else setTab(t);
             }}
-            className={`flex-1 py-3 px-4 rounded-full ${i === 0 ? "mr-2" : i === 2 ? "ml-2" : "mx-2"} ${
-              tab === t ? "bg-gray-200" : "bg-transparent"
-            }`}
+            className={`flex-1 py-3 px-4 rounded-full ${i === 0 ? "mr-2" : i === 2 ? "ml-2" : "mx-2"
+              } ${tab === t ? "bg-gray-200" : "bg-transparent"}`}
           >
             <Text
-              className={`text-center font-medium ${
-                tab === t ? "text-black" : "text-gray-500"
-              }`}
+              className={`text-center font-medium ${tab === t ? "text-black" : "text-gray-500"
+                }`}
             >
               {t === "todas" ? "Todas" : t === "mias" ? "Mis Rutas" : "Populares"}
             </Text>
@@ -216,23 +288,24 @@ export default function RutasScreen() {
             <Text className="mt-2 text-gray-500">Cargando rutas...</Text>
           </View>
         ) : error ? (
-          <Text className="text-red-500 text-center mt-20">{error}</Text>
+          <Text className="text-red-500 text-center mt-20 px-4">{error}</Text>
         ) : list.length === 0 ? (
           <Text className="text-gray-400 text-center mt-20">
-            {tab === "mias"
-              ? "Aún no tienes rutas creadas"
-              : "No hay rutas disponibles"}
+            {tab === "mias" ? "Aún no tienes rutas creadas" : "No hay rutas disponibles"}
           </Text>
         ) : (
           list.map((r) => (
             <RouteRow
               key={r.id}
               ruta={r}
-              onPress={() =>
-                Platform.OS === "web"
-                  ? alert(`Abrir detalles de: ${r.nombre}`)
-                  : Alert.alert("Detalles", r.nombre)
-              }
+              onPress={() => {
+                console.log("🗺️ Ruta seleccionada:", r.nombre);
+                console.log("📍 Coordenadas:", r.recorrido?.coordinates?.length ?? 0, "puntos");
+                router.push({
+                  pathname: "/ruta/[id]",
+                  params: { id: r.id, data: JSON.stringify(r) },
+                });
+              }}
             />
           ))
         )}
