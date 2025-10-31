@@ -99,6 +99,28 @@ class RutaService {
             totalPages,
         };
     }
+
+    async calificarRuta({ rutaId, id_usuario, puntuacion, comentario }) {
+        console.info(`${new Date().toISOString()} [RutaService] [calificarRuta] [START] rutaId=${rutaId} user=${id_usuario} punt=${puntuacion}`);
+
+        if (!rutaId) throw new Error("rutaId es requerido");
+        if (!id_usuario) throw new Error("id_usuario es requerido");
+
+        const p = Number(puntuacion);
+        if (!Number.isFinite(p) || p < 1 || p > 5) {
+            throw new Error("puntuacion debe estar entre 1 y 5");
+        }
+
+        const rutaRepository = new RutaRepository();
+        const rutaMapper = new RutaMapper();
+
+        const updatedDoc = await rutaRepository.calificarRuta({ rutaId, id_usuario, puntuacion: p, comentario });
+        const updatedDomain = rutaMapper.toDomain(updatedDoc);
+
+        console.info(`${new Date().toISOString()} [RutaService] [calificarRuta] [END] nuevo_promedio=${updatedDomain?.promedio_valoracion ?? "?"}`);
+        return updatedDomain;
+    }
+
 }
 
 module.exports = RutaService;

@@ -56,15 +56,15 @@ class RutaController {
   // GET /rutas/mias?uid=...&page=1&limit=20&q=senderismo
   async findMine(req, res, next) {
     try {
-      const uid   = req.query.uid || req.headers['x-uid'] || req.user?.uid || null;
-      const page  = Number(req.query.page ?? 1);
+      const uid = req.query.uid || req.headers['x-uid'] || req.user?.uid || null;
+      const page = Number(req.query.page ?? 1);
       const limit = Number(req.query.limit ?? 20);
-      const q     = req.query.q;
+      const q = req.query.q;
 
       if (!uid) throw new ParametersError('Se requiere uid');
 
       const rutaService = new RutaService();
-      const rutaMapper  = new RutaMapper();
+      const rutaMapper = new RutaMapper();
 
       const result = await rutaService.findMine({ uid, page, limit, q });
       const dataDTO = (result.data || []).map((d) => rutaMapper.toDTO(d));
@@ -74,6 +74,23 @@ class RutaController {
       next(error);
     }
   }
+
+  // POST /rutas/:id/valoraciones
+  async rate(req, res, next) {
+    try {
+      const rutaId = req.params.id;
+      const { id_usuario, puntuacion, comentario } = req.body;
+
+      const rutaService = new RutaService();
+      const rutaMapper = new RutaMapper();
+
+      const updated = await rutaService.calificarRuta({ rutaId, id_usuario, puntuacion, comentario });
+      return res.status(200).json(rutaMapper.toDTO(updated));
+    } catch (error) {
+      next(error);
+    }
+  }
+
 }
 
 module.exports = RutaController;

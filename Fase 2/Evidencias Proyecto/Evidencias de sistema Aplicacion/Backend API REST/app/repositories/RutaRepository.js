@@ -41,6 +41,14 @@ class RutaRepository {
 
         return result;
     }
+
+    async calificarRuta({ rutaId, id_usuario, puntuacion, comentario }) {
+        console.info(`${new Date().toISOString()} [RutaRepository] [calificarRuta] rutaId=${rutaId} user=${id_usuario} punt=${puntuacion}`);
+        const mongoDBClientRuta = new MongoDBClientRuta();
+        const updated = await mongoDBClientRuta.addValoracion({ rutaId, id_usuario, puntuacion, comentario });
+        return updated;
+    }
+
 }
 
 module.exports = RutaRepository;
