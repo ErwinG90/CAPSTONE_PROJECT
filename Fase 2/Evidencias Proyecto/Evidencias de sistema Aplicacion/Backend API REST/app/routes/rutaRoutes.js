@@ -16,4 +16,7 @@ router.get('/mias', (req, res, next) => rutaController.findMine(req, res, next))
 // calificar una ruta
 router.post('/:id/valoraciones', (req, res, next) => rutaController.rate(req, res, next));
 
+// listar valoraciones
+router.get('/:id/valoraciones', (req, res, next) => rutaController.ratings(req, res, next));
+
 module.exports = router;

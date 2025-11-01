@@ -121,6 +121,17 @@ class RutaService {
         return updatedDomain;
     }
 
+    async obtenerValoraciones({ rutaId, page = 1, limit = 20 }) {
+        console.info(`${new Date().toISOString()} [RutaService] [obtenerValoraciones] rutaId=${rutaId} page=${page} limit=${limit}`);
+        if (!rutaId) throw new Error("rutaId es requerido");
+
+        const repo = new RutaRepository();
+        const result = await repo.listValoraciones({ rutaId, page, limit });
+
+        const totalPages = Math.max(1, Math.ceil(result.total / Math.max(1, result.limit)));
+        return { ...result, totalPages };
+    }
+
 }
 
 module.exports = RutaService;

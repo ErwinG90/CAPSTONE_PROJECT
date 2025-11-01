@@ -49,6 +49,12 @@ class RutaRepository {
         return updated;
     }
 
+    async listValoraciones({ rutaId, page = 1, limit = 20 }) {
+        console.info(`${new Date().toISOString()} [RutaRepository] [listValoraciones] rutaId=${rutaId} page=${page} limit=${limit}`);
+        const mongoDBClientRuta = new MongoDBClientRuta();
+        return await mongoDBClientRuta.listValoraciones({ rutaId, page, limit });
+    }
+
 }
 
 module.exports = RutaRepository;

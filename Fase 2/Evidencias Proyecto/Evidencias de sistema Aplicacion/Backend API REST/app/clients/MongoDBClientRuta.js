@@ -182,6 +182,59 @@ class MongoDBClientRuta {
         }
     }
 
+    async listValoraciones({ rutaId, page = 1, limit = 20 }) {
+        try {
+            if (!this.collection) await this.connect();
+            const _id = new ObjectId(rutaId);
+
+            const p = Math.max(1, Number(page));
+            const l = Math.max(1, Number(limit));
+            const skip = (p - 1) * l;
+
+            const pipeline = [
+                { $match: { _id } },
+                { $project: { valoraciones: { $ifNull: ["$valoraciones", []] } } },
+                { $unwind: { path: "$valoraciones", preserveNullAndEmptyArrays: false } },
+                { $replaceRoot: { newRoot: "$valoraciones" } },
+
+                // Buscamos en ambas colecciones posibles: 'users' (backend actual) y 'usuarios' (tu esquema)
+                { $lookup: { from: "users", localField: "id_usuario", foreignField: "_id", as: "u1" } },
+                { $lookup: { from: "usuarios", localField: "id_usuario", foreignField: "_id", as: "u2" } },
+                { $addFields: { user: { $ifNull: [{ $arrayElemAt: ["$u1", 0] }, { $arrayElemAt: ["$u2", 0] }] } } },
+
+                {
+                    $project: {
+                        _id: 0,
+                        id_usuario: 1,
+                        puntuacion: 1,
+                        fecha: 1,
+                        usuario: {
+                            uid: "$user._id",
+                            nombre: { $ifNull: ["$user.nombre", null] },
+                            avatar: { $ifNull: ["$user.avatar", ""] }
+                        }
+                    }
+                },
+                { $sort: { fecha: -1 } },
+                {
+                    $facet: {
+                        items: [{ $skip: skip }, { $limit: l }],
+                        total: [{ $count: "count" }]
+                    }
+                }
+            ];
+
+            const [res] = await this.collection.aggregate(pipeline).toArray();
+            const items = res?.items ?? [];
+            const total = (res?.total?.[0]?.count) ?? 0;
+
+            return { items, total, page: p, limit: l };
+        } catch (error) {
+            console.error(`${new Date().toISOString()} [MongoDBClientRuta] [listValoracionesEnriquecidas] Error:`, error);
+            throw error;
+        }
+    }
+
 
 }
 
