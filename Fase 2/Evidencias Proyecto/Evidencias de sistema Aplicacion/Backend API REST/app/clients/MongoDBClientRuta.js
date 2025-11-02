@@ -58,44 +58,184 @@ class MongoDBClientRuta {
     // Listar rutas del creador 
     async findByCreator({ uid, page = 1, limit = 20, q } = {}) {
         try {
-        if (!uid) throw new Error('uid es requerido');
-        if (!this.collection) await this.connect();
+            if (!uid) throw new Error('uid es requerido');
+            if (!this.collection) await this.connect();
 
-        const col = this.collection;
+            const col = this.collection;
 
-        const p = Math.max(1, Number(page));
-        const l = Math.max(1, Number(limit));
-        const skip = (p - 1) * l;
+            const p = Math.max(1, Number(page));
+            const l = Math.max(1, Number(limit));
+            const skip = (p - 1) * l;
 
-        const filter = { id_creador: uid };
-        if (q && String(q).trim()) {
-            const rx = new RegExp(String(q).trim(), 'i');
-            Object.assign(filter, {
-            $or: [
-                { nombre_ruta: rx },
-                { descripcion: rx },
-                { tipo_deporte: rx },
-            ],
-            });
-        }
+            const filter = { id_creador: uid };
+            if (q && String(q).trim()) {
+                const rx = new RegExp(String(q).trim(), 'i');
+                Object.assign(filter, {
+                    $or: [
+                        { nombre_ruta: rx },
+                        { descripcion: rx },
+                        { tipo_deporte: rx },
+                    ],
+                });
+            }
 
-        const cursor = col
-            .find(filter)
-            .sort({ fecha_creacion: -1, _id: -1 })
-            .skip(skip)
-            .limit(l);
+            const cursor = col
+                .find(filter)
+                .sort({ fecha_creacion: -1, _id: -1 })
+                .skip(skip)
+                .limit(l);
 
-        const [items, total] = await Promise.all([
-            cursor.toArray(),
-            col.countDocuments(filter),
-        ]);
+            const [items, total] = await Promise.all([
+                cursor.toArray(),
+                col.countDocuments(filter),
+            ]);
 
-        return { items, total, page: p, limit: l };
+            return { items, total, page: p, limit: l };
         } catch (error) {
-        console.error(`${new Date().toISOString()} [MongoDBClientRuta] [findByCreator] Error:`, error);
-        throw error;
+            console.error(`${new Date().toISOString()} [MongoDBClientRuta] [findByCreator] Error:`, error);
+            throw error;
         }
     }
+
+    // Agregar/actualizar valoración y recalcular promedio
+    async addValoracion({ rutaId, id_usuario, puntuacion, comentario }) {
+        try {
+            if (!this.collection) await this.connect();
+
+            const _id = new ObjectId(rutaId);
+            const now = new Date();
+
+            // Objeto de valoración a insertar/sobrescribir
+            const nuevaVal = {
+                id_usuario,                    // string (o ObjectId si más adelante quieres)
+                puntuacion: Number(puntuacion),// 1..5
+                fecha: now
+            };
+            if (comentario && String(comentario).trim()) {
+                nuevaVal.comentario = String(comentario).trim();
+            }
+
+            // Update con pipeline (MongoDB 4.2+): 
+            // 1) Reemplaza la valoración del mismo usuario (si existe) por la nueva.
+            // 2) Recalcula promedio_valoracion sobre todo el array.
+            const result = await this.collection.updateOne(
+                { _id },
+                [
+                    {
+                        $set: {
+                            valoraciones: {
+                                $let: {
+                                    vars: {
+                                        base: { $ifNull: ["$valoraciones", []] }
+                                    },
+                                    in: {
+                                        $concatArrays: [
+                                            {
+                                                // Filtra cualquier valoración previa del mismo usuario
+                                                $filter: {
+                                                    input: "$$base",
+                                                    as: "v",
+                                                    cond: { $ne: ["$$v.id_usuario", id_usuario] }
+                                                }
+                                            },
+                                            [nuevaVal]
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        $set: {
+                            promedio_valoracion: {
+                                $cond: [
+                                    { $gt: [{ $size: "$valoraciones" }, 0] },
+                                    {
+                                        $avg: {
+                                            $map: {
+                                                input: "$valoraciones",
+                                                as: "v",
+                                                in: "$$v.puntuacion"
+                                            }
+                                        }
+                                    },
+                                    0
+                                ]
+                            }
+                        }
+                    }
+                ]
+            );
+
+            if (result.matchedCount === 0) {
+                const e = new Error("Ruta no encontrada");
+                e.status = 404;
+                throw e;
+            }
+
+            // Devuelve la ruta actualizada
+            const updated = await this.collection.findOne({ _id });
+            return updated;
+        } catch (error) {
+            console.error(`${new Date().toISOString()} [MongoDBClientRuta] [addValoracion] Error:`, error);
+            throw error;
+        }
     }
+
+    async listValoraciones({ rutaId, page = 1, limit = 20 }) {
+        try {
+            if (!this.collection) await this.connect();
+            const _id = new ObjectId(rutaId);
+
+            const p = Math.max(1, Number(page));
+            const l = Math.max(1, Number(limit));
+            const skip = (p - 1) * l;
+
+            const pipeline = [
+                { $match: { _id } },
+                { $project: { valoraciones: { $ifNull: ["$valoraciones", []] } } },
+                { $unwind: { path: "$valoraciones", preserveNullAndEmptyArrays: false } },
+                { $replaceRoot: { newRoot: "$valoraciones" } },
+
+                // Buscamos en ambas colecciones posibles: 'users' (backend actual) y 'usuarios' (tu esquema)
+                { $lookup: { from: "users", localField: "id_usuario", foreignField: "_id", as: "u1" } },
+                { $lookup: { from: "usuarios", localField: "id_usuario", foreignField: "_id", as: "u2" } },
+                { $addFields: { user: { $ifNull: [{ $arrayElemAt: ["$u1", 0] }, { $arrayElemAt: ["$u2", 0] }] } } },
+
+                {
+                    $project: {
+                        _id: 0,
+                        id_usuario: 1,
+                        puntuacion: 1,
+                        fecha: 1,
+                        usuario: {
+                            uid: "$user._id",
+                            nombre: { $ifNull: ["$user.nombre", null] },
+                            avatar: { $ifNull: ["$user.avatar", ""] }
+                        }
+                    }
+                },
+                { $sort: { fecha: -1 } },
+                {
+                    $facet: {
+                        items: [{ $skip: skip }, { $limit: l }],
+                        total: [{ $count: "count" }]
+                    }
+                }
+            ];
+
+            const [res] = await this.collection.aggregate(pipeline).toArray();
+            const items = res?.items ?? [];
+            const total = (res?.total?.[0]?.count) ?? 0;
+
+            return { items, total, page: p, limit: l };
+        } catch (error) {
+            console.error(`${new Date().toISOString()} [MongoDBClientRuta] [listValoracionesEnriquecidas] Error:`, error);
+            throw error;
+        }
+    }
+
+
+}
 
 module.exports = MongoDBClientRuta;

@@ -41,6 +41,20 @@ class RutaRepository {
 
         return result;
     }
+
+    async calificarRuta({ rutaId, id_usuario, puntuacion, comentario }) {
+        console.info(`${new Date().toISOString()} [RutaRepository] [calificarRuta] rutaId=${rutaId} user=${id_usuario} punt=${puntuacion}`);
+        const mongoDBClientRuta = new MongoDBClientRuta();
+        const updated = await mongoDBClientRuta.addValoracion({ rutaId, id_usuario, puntuacion, comentario });
+        return updated;
+    }
+
+    async listValoraciones({ rutaId, page = 1, limit = 20 }) {
+        console.info(`${new Date().toISOString()} [RutaRepository] [listValoraciones] rutaId=${rutaId} page=${page} limit=${limit}`);
+        const mongoDBClientRuta = new MongoDBClientRuta();
+        return await mongoDBClientRuta.listValoraciones({ rutaId, page, limit });
+    }
+
 }
 
 module.exports = RutaRepository;
