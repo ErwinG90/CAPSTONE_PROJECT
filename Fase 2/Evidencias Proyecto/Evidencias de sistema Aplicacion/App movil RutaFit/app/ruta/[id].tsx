@@ -1,10 +1,23 @@
+// app/ruta/[id].tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, ActivityIndicator, ScrollView, Pressable } from "react-native";
+import {
+    View,
+    Text,
+    ActivityIndicator,
+    ScrollView,
+    Pressable,
+    Modal,
+    Image,
+    Alert,
+} from "react-native";
 import MapView, { Polyline, Region } from "react-native-maps";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { getUserById } from "../../services/UserService";
+import { auth } from "../../src/firebaseConfig";
+import { rutaService } from "../../services/RutaService";
+import { AVATAR_IMAGES, type AvatarKey } from "../../src/Constants";
 
+// ===== Tipos UI mínimos (ajústalos si ya los tienes tipados) =====
 type Ruta = {
     id?: string;
     _id?: string;
@@ -20,31 +33,18 @@ type Ruta = {
     recorrido?: { type: "LineString"; coordinates: [number, number][] };
 };
 
-type Calificacion = {
-    usuario: string;
-    valoracion: number;
-    fecha: string;
+type ValoracionAPI = {
+    id_usuario: string;
+    puntuacion: number; // 1..5
+    fecha: string; // ISO
+    usuario?: {
+        uid?: string;
+        nombre?: string;
+        avatar?: string | null; // aquí viene la **clave** del avatar
+    };
 };
 
-// calificaciones (reemplazar con data real cuando exista el endpoint)
-const mockCalificaciones: Calificacion[] = [
-    {
-        usuario: "Carlos Ruiz",
-        valoracion: 5,
-        fecha: "19 ene 2024",
-    },
-    {
-        usuario: "Ana López",
-        valoracion: 4,
-        fecha: "17 ene 2024",
-    },
-    {
-        usuario: "Luis Hernández",
-        valoracion: 5,
-        fecha: "15 ene 2024",
-    },
-];
-
+// ===== Helpers =====
 function toLatLng(coords: [number, number][]) {
     // Backend envía [lon, lat]; MapView espera { latitude, longitude }
     return coords.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
@@ -70,39 +70,98 @@ function formatDistance(km?: number) {
     return `${km.toFixed(1)} km`;
 }
 
-function CalificacionCard({ cal }: { cal: Calificacion }) {
+function formatFecha(fechaIso?: string | Date) {
+    if (!fechaIso) return "";
+    try {
+        const d = typeof fechaIso === "string" ? new Date(fechaIso) : fechaIso;
+        return d.toLocaleDateString("es-CL", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        });
+    } catch {
+        return "";
+    }
+}
+
+// Avatar local con Constants (igual patrón que ProfileHeader)
+function AvatarLocal({
+    avatarKey,
+    name,
+    size = 40,
+}: {
+    avatarKey?: string | null;
+    name?: string;
+    size?: number;
+}) {
+    const key = (avatarKey || "") as AvatarKey;
+    const imgSrc = key && AVATAR_IMAGES[key] ? AVATAR_IMAGES[key] : null;
+
+    if (imgSrc) {
+        return (
+            <Image
+                source={imgSrc}
+                style={{ width: size, height: size, borderRadius: 9999 }}
+                className="bg-primary/15 border border-primary"
+            />
+        );
+    }
+
+    // fallback: iniciales
+    const initials =
+        (name ?? "U")
+            .split(" ")
+            .filter(Boolean)
+            .map((n) => n[0]?.toUpperCase())
+            .slice(0, 2)
+            .join("") || "U";
+
+    return (
+        <View
+            style={{ width: size, height: size }}
+            className="rounded-full bg-primary/15 border border-primary items-center justify-center"
+        >
+            <Text className="text-sm font-semibold text-primary">{initials}</Text>
+        </View>
+    );
+}
+
+function Stars({ value, size = 14 }: { value: number; size?: number }) {
+    return (
+        <View className="flex-row">
+            {[1, 2, 3, 4, 5].map((s) => (
+                <Ionicons
+                    key={s}
+                    name="star"
+                    size={size}
+                    color={s <= value ? "#facc15" : "#d1d5db"}
+                />
+            ))}
+        </View>
+    );
+}
+
+function CalificacionRow({ item }: { item: ValoracionAPI }) {
+    const nombre = item.usuario?.nombre ?? "Usuario";
+    const avatarKey = (item.usuario?.avatar ?? "") as AvatarKey;
+
     return (
         <View className="mb-4">
             <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center">
-                    <View className="w-10 h-10 rounded-full bg-gray-200 items-center justify-center mr-3">
-                        <Text className="text-sm font-semibold text-gray-700">
-                            {cal.usuario
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")}
-                        </Text>
-                    </View>
-                    <View>
-                        <Text className="font-semibold text-base">{cal.usuario}</Text>
-                        <View className="flex-row">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                                <Ionicons
-                                    key={star}
-                                    name="star"
-                                    size={14}
-                                    color={star <= cal.valoracion ? "#facc15" : "#d1d5db"}
-                                />
-                            ))}
-                        </View>
+                    <AvatarLocal name={nombre} avatarKey={avatarKey} />
+                    <View className="ml-3">
+                        <Text className="font-semibold text-base">{nombre}</Text>
+                        <Stars value={item.puntuacion} />
                     </View>
                 </View>
-                <Text className="text-xs text-gray-500">{cal.fecha}</Text>
+                <Text className="text-xs text-gray-500">{formatFecha(item.fecha)}</Text>
             </View>
         </View>
     );
 }
 
+// ===== Pantalla =====
 export default function RutaDetailScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
@@ -112,67 +171,78 @@ export default function RutaDetailScreen() {
     const [ruta, setRuta] = useState<Ruta | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [creatorName, setCreatorName] = useState<string>("Usuario");
+
+    // mapa
     const [hasZoomed, setHasZoomed] = useState(false);
     const mapRef = React.useRef<any>(null);
 
+    // calificaciones
+    const [cals, setCals] = useState<ValoracionAPI[]>([]);
+    const [loadingCals, setLoadingCals] = useState(false);
+
+    // modal calificar
+    const [showModal, setShowModal] = useState(false);
+    const [myStars, setMyStars] = useState<number>(0);
+    const uid = auth.currentUser?.uid;
+
+    // cargar ruta desde params (o haz GET por id si lo prefieres)
     useEffect(() => {
         let mounted = true;
-        try {
-            setLoading(true);
-            if (dataParam) {
-                const parsed = JSON.parse(dataParam) as Ruta;
-                if (mounted) setRuta(parsed);
-            } else {
-                setError("Falta params.data; implementa GET /rutas/:id para cargar por ID");
+        (async () => {
+            try {
+                setLoading(true);
+                if (dataParam) {
+                    const parsed = JSON.parse(dataParam) as Ruta;
+                    if (mounted) setRuta(parsed);
+                } else {
+                    setError("Falta params.data; implementa GET /rutas/:id para cargar por ID");
+                }
+            } catch (e: any) {
+                setError(e?.message ?? "Error cargando la ruta");
+            } finally {
+                setLoading(false);
             }
-        } catch (e: any) {
-            setError(e?.message ?? "Error cargando la ruta");
-        } finally {
-            setLoading(false);
-        }
+        })();
         return () => {
             mounted = false;
         };
     }, [id, dataParam]);
 
-    // Fetch creator info
+    // GET calificaciones (via service)
+    const fetchCals = async () => {
+        if (!id) return;
+        try {
+            setLoadingCals(true);
+            const items = await rutaService.getValoracionesRuta(id);
+            setCals(items);
+        } catch (e: any) {
+            console.error("GET valoraciones error:", e?.message);
+        } finally {
+            setLoadingCals(false);
+        }
+    };
+
     useEffect(() => {
-        if (!ruta?.creadorId) return;
-        let mounted = true;
-        getUserById(ruta.creadorId)
-            .then((user) => {
-                if (mounted) {
-                    const displayName = user.displayName || `${user.nombre || ""} ${user.apellido || ""}`.trim() || "Usuario";
-                    setCreatorName(displayName);
-                }
-            })
-            .catch(() => {
-                if (mounted) setCreatorName("Usuario");
-            });
-        return () => {
-            mounted = false;
-        };
-    }, [ruta?.creadorId]);
+        fetchCals();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id]);
+
+    // métricas de rating local
+    const localAvg = useMemo(() => {
+        if (!cals.length) return ruta?.rating ?? undefined;
+        const s = cals.reduce((acc, v) => acc + (v.puntuacion || 0), 0);
+        return s / cals.length;
+    }, [cals, ruta?.rating]);
+
+    const localCount = useMemo(
+        () => (cals.length ? cals.length : ruta?.ratingCount),
+        [cals, ruta?.ratingCount]
+    );
 
     const coords = ruta?.recorrido?.coordinates ?? [];
     const region = useMemo(() => computeRegionFromCoords(coords), [coords]);
     const polyline = useMemo(() => toLatLng(coords), [coords]);
-
-    // Guardar la región inicial solo una vez usando useMemo
-    const initialRegion = React.useMemo(() => {
-        return region;
-    }, [coords]); // Depende de coords, no de region
-
-    const formatDate = (date?: string | Date) => {
-        if (!date) return null;
-        try {
-            const d = typeof date === "string" ? new Date(date) : date;
-            return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
-        } catch {
-            return null;
-        }
-    };
+    const initialRegion = React.useMemo(() => region, [coords]);
 
     if (loading) {
         return (
@@ -188,10 +258,7 @@ export default function RutaDetailScreen() {
             <View className="flex-1 items-center justify-center px-6 bg-white">
                 <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
                 <Text className="text-red-500 text-center mt-4">{error ?? "No se encontró la ruta"}</Text>
-                <Pressable
-                    className="mt-6 bg-black px-6 py-3 rounded-xl"
-                    onPress={() => router.back()}
-                >
+                <Pressable className="mt-6 bg-black px-6 py-3 rounded-xl" onPress={() => router.back()}>
                     <Text className="text-white font-semibold">Volver</Text>
                 </Pressable>
             </View>
@@ -200,15 +267,32 @@ export default function RutaDetailScreen() {
 
     const nombre = ruta.nombre ?? "Ruta";
 
+    const handleSubmitRating = async () => {
+        if (!uid) {
+            Alert.alert("Inicia sesión", "Debes iniciar sesión para calificar.");
+            return;
+        }
+        if (myStars < 1 || myStars > 5) {
+            Alert.alert("Selecciona una puntuación", "Elige un valor entre 1 y 5 estrellas.");
+            return;
+        }
+        try {
+            await rutaService.calificarRuta(id, uid, myStars);
+            setShowModal(false);
+            setMyStars(0);
+            await fetchCals();
+            Alert.alert("¡Gracias!", "Tu calificación fue registrada.");
+        } catch (e: any) {
+            console.error("POST valoracion error:", e?.message);
+            Alert.alert("No se pudo calificar", e?.response?.data?.message || "Inténtalo nuevamente.");
+        }
+    };
+
     return (
         <View className="flex-1 bg-white">
-            {/* Header con botón Volver */}
+            {/* Header */}
             <View className="flex-row items-center px-4 pt-12 pb-3 bg-white border-b border-gray-100">
-                <Pressable
-                    onPress={() => router.back()}
-                    className="mr-3 p-2"
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
+                <Pressable onPress={() => router.back()} className="mr-3 p-2" hitSlop={10}>
                     <Ionicons name="arrow-back" size={24} color="#111" />
                 </Pressable>
                 <Text className="text-lg font-semibold flex-1" numberOfLines={1}>
@@ -217,7 +301,7 @@ export default function RutaDetailScreen() {
             </View>
 
             <ScrollView className="flex-1">
-                {/* Mapa interactivo con vista previa */}
+                {/* Mapa */}
                 <View className="h-64 w-full bg-gray-100 relative">
                     {region && polyline.length >= 2 ? (
                         <>
@@ -228,13 +312,12 @@ export default function RutaDetailScreen() {
                                 }}
                                 style={{ height: "100%", width: "100%" }}
                                 initialRegion={initialRegion || region}
-                                scrollEnabled={true}
-                                zoomEnabled={true}
+                                scrollEnabled
+                                zoomEnabled
                                 rotateEnabled={false}
                                 pitchEnabled={false}
                                 mapType="standard"
                                 onRegionChangeComplete={(newRegion) => {
-                                    // Detectar si el usuario hizo zoom comparando con la región inicial
                                     if (initialRegion) {
                                         const zoomChanged =
                                             Math.abs(newRegion.latitudeDelta - initialRegion.latitudeDelta) > 0.001 ||
@@ -246,7 +329,6 @@ export default function RutaDetailScreen() {
                                 <Polyline coordinates={polyline} strokeColor="#2563eb" strokeWidth={4} />
                             </MapView>
 
-                            {/* Botón reset sutil - solo visible si hizo zoom */}
                             {hasZoomed && (
                                 <Pressable
                                     className="absolute bottom-3 right-3 bg-black/60 p-2.5 rounded-full"
@@ -273,17 +355,14 @@ export default function RutaDetailScreen() {
                 <View className="px-4 pt-4">
                     <Pressable
                         className="bg-green-600 rounded-xl py-4 items-center flex-row justify-center"
-                        onPress={() => {
-                            // TODO: navegar al mapa con esta ruta precargada
-                            router.back();
-                        }}
+                        onPress={() => router.back()}
                     >
                         <Ionicons name="play" size={20} color="white" style={{ marginRight: 8 }} />
                         <Text className="text-white font-semibold text-base">Iniciar esta Ruta</Text>
                     </Pressable>
                 </View>
 
-                {/*deporte y dificultad + rating */}
+                {/* Info + rating promedio local */}
                 <View className="px-4 pt-4">
                     <View className="flex-row items-center justify-between mb-3">
                         <View className="flex-row gap-2">
@@ -298,43 +377,33 @@ export default function RutaDetailScreen() {
                                 </View>
                             ) : null}
                         </View>
-                        {ruta.rating != null && (
+                        {localAvg != null && (
                             <View className="flex-row items-center">
                                 <Ionicons name="star" size={18} color="#facc15" />
                                 <Text className="ml-1 text-base font-semibold">
-                                    {ruta.rating.toFixed(1)}
+                                    {Number(localAvg).toFixed(1)}
                                 </Text>
-                                {ruta.ratingCount != null && (
-                                    <Text className="ml-1 text-sm text-gray-500">({ruta.ratingCount})</Text>
+                                {localCount != null && (
+                                    <Text className="ml-1 text-sm text-gray-500">({localCount})</Text>
                                 )}
                             </View>
                         )}
                     </View>
 
-                    {/* Nombre, creador y fecha */}
                     <Text className="text-2xl font-bold mb-1">{nombre}</Text>
-                    <View className="flex-row items-center mb-3">
-                        <Ionicons name="person-outline" size={14} color="#6b7280" />
-                        <Text className="text-sm text-gray-600 ml-1">por {creatorName}</Text>
-                        {formatDate(ruta.fechaCreacion) && (
-                            <>
-                                <Text className="text-sm text-gray-400 mx-2">•</Text>
-                                <Ionicons name="calendar-outline" size={14} color="#6b7280" />
-                                <Text className="text-sm text-gray-600 ml-1">{formatDate(ruta.fechaCreacion)}</Text>
-                            </>
-                        )}
-                    </View>
                     {ruta.descripcion ? (
                         <Text className="text-sm text-gray-600 leading-5 mb-4">{ruta.descripcion}</Text>
                     ) : null}
 
-                    {/* Métricas */}
+                    {/* Métrica distancia */}
                     <View className="bg-gray-50 rounded-xl p-4 mb-4">
                         <View className="flex-row justify-center">
                             <View className="items-center">
                                 <Ionicons name="trail-sign-outline" size={24} color="#6b7280" />
                                 <Text className="text-xs text-gray-500 mt-1">Distancia</Text>
-                                <Text className="text-lg font-semibold mt-1">{formatDistance(ruta.distanciaKm)}</Text>
+                                <Text className="text-lg font-semibold mt-1">
+                                    {formatDistance(ruta.distanciaKm)}
+                                </Text>
                             </View>
                         </View>
                     </View>
@@ -346,10 +415,10 @@ export default function RutaDetailScreen() {
                         <View className="flex-row items-center">
                             <Ionicons name="chatbubble-outline" size={20} color="#111" />
                             <Text className="text-lg font-semibold ml-2">
-                                Calificaciones ({mockCalificaciones.length})
+                                Calificaciones ({cals?.length ?? 0})
                             </Text>
                         </View>
-                        <Pressable>
+                        <Pressable onPress={() => setShowModal(true)}>
                             <View className="flex-row items-center">
                                 <Ionicons name="star-outline" size={18} color="#111" />
                                 <Text className="ml-1 text-sm font-medium">Calificar</Text>
@@ -357,11 +426,54 @@ export default function RutaDetailScreen() {
                         </Pressable>
                     </View>
 
-                    {mockCalificaciones.map((cal, idx) => (
-                        <CalificacionCard key={idx} cal={cal} />
-                    ))}
+                    {loadingCals ? (
+                        <View className="items-center py-6">
+                            <ActivityIndicator />
+                        </View>
+                    ) : cals.length === 0 ? (
+                        <Text className="text-gray-500">Aún no hay calificaciones.</Text>
+                    ) : (
+                        cals.map((it, idx) => <CalificacionRow key={`${it.id_usuario}-${idx}`} item={it} />)
+                    )}
                 </View>
             </ScrollView>
+
+            {/* Modal Calificar */}
+            <Modal visible={showModal} transparent animationType="slide">
+                <View className="flex-1 bg-black/40 items-center justify-end">
+                    <View className="bg-white w-full rounded-t-2xl p-5">
+                        <View className="items-center mb-3">
+                            <Text className="text-lg font-semibold">Calificar Ruta</Text>
+                            <Text className="text-gray-500 mt-1">Selecciona tu puntuación</Text>
+                        </View>
+
+                        <View className="flex-row items-center justify-center my-3">
+                            {[1, 2, 3, 4, 5].map((s) => (
+                                <Pressable key={s} onPress={() => setMyStars(s)} className="mx-1">
+                                    <Ionicons
+                                        name={s <= myStars ? "star" : "star-outline"}
+                                        size={32}
+                                        color={s <= myStars ? "#facc15" : "#9ca3af"}
+                                    />
+                                </Pressable>
+                            ))}
+                        </View>
+
+                        <View className="flex-row justify-end mt-2">
+                            <Pressable onPress={() => setShowModal(false)} className="px-4 py-3 mr-2">
+                                <Text className="text-gray-600 font-medium">Cancelar</Text>
+                            </Pressable>
+                            <Pressable
+                                onPress={handleSubmitRating}
+                                className={`px-4 py-3 rounded-xl ${myStars ? "bg-black" : "bg-gray-300"}`}
+                                disabled={!myStars}
+                            >
+                                <Text className="text-white font-semibold">Guardar</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
