@@ -7,6 +7,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   TextInput,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -53,7 +54,17 @@ function adaptRutaToUI(r: any): RutaUI {
 }
 
 /** ===== Card ===== */
-function RouteRow({ ruta, onPress }: { ruta: RutaUI; onPress?: () => void }) {
+function RouteRow({
+  ruta,
+  onPress,
+  showDelete,
+  onDelete,
+}: {
+  ruta: RutaUI;
+  onPress?: () => void;
+  showDelete?: boolean;
+  onDelete?: () => void;
+}) {
   const [isPressed, setIsPressed] = React.useState(false);
 
   return (
@@ -61,8 +72,9 @@ function RouteRow({ ruta, onPress }: { ruta: RutaUI; onPress?: () => void }) {
       onPress={onPress}
       onPressIn={() => setIsPressed(true)}
       onPressOut={() => setIsPressed(false)}
-      className={`rounded-2xl bg-white mb-4 px-5 py-4 shadow-sm ${isPressed ? "border-2 border-green-500" : "border border-gray-200"
-        }`}
+      className={`rounded-2xl bg-white mb-4 px-5 py-4 shadow-sm ${
+        isPressed ? "border-2 border-green-500" : "border border-gray-200"
+      }`}
       android_ripple={{ color: "#bbf7d0", borderless: false }}
     >
       <View className="flex-row items-start">
@@ -75,11 +87,23 @@ function RouteRow({ ruta, onPress }: { ruta: RutaUI; onPress?: () => void }) {
             <Text className="text-base font-semibold flex-1" numberOfLines={1}>
               {ruta.nombre}
             </Text>
-            <View className="flex-row items-center ml-2">
-              <Ionicons name="star" size={14} color="#facc15" />
-              <Text className="text-xs ml-1 text-gray-700">
-                {fmtRating(ruta.rating, ruta.ratingCount)}
-              </Text>
+
+            <View className="flex-row items-center gap-2">
+              <View className="flex-row items-center">
+                <Ionicons name="star" size={14} color="#facc15" />
+                <Text className="text-xs ml-1 text-gray-700">
+                  {fmtRating(ruta.rating, ruta.ratingCount)}
+                </Text>
+              </View>
+
+              {showDelete && (
+                <Pressable
+                  onPress={onDelete}
+                  className="px-3 py-1 rounded-full bg-red-600"
+                >
+                  <Text className="text-white text-xs font-semibold">Eliminar</Text>
+                </Pressable>
+              )}
             </View>
           </View>
 
@@ -214,10 +238,38 @@ export default function RutasScreen() {
       tab === "todas"
         ? "Descubre y explora rutas increíbles"
         : tab === "mias"
-          ? "Tus rutas creadas o guardadas"
-          : "Rutas más valoradas",
+        ? "Tus rutas creadas o guardadas"
+        : "Rutas más valoradas",
     [tab]
   );
+
+  /** Confirmación + borrado local (y API si existe) */
+  const confirmEliminar = (ruta: RutaUI) => {
+    Alert.alert(
+      "Eliminar ruta",
+      `¿Seguro que deseas eliminar “${ruta.nombre}”?`,
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Sí, eliminar",
+          style: "destructive",
+          onPress: () => doDelete(ruta),
+        },
+      ]
+    );
+  };
+
+  const doDelete = async (ruta: RutaUI) => {
+    try {
+      // Si tu servicio ya tiene un método de backend, úsalo:
+      // await rutaService.eliminarRuta(ruta.id);
+
+      // Quitar inmediatamente de la lista local
+      setList((prev) => prev.filter((x) => x.id !== ruta.id));
+    } catch (e: any) {
+      Alert.alert("No se pudo eliminar", String(e?.message ?? e));
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -242,16 +294,6 @@ export default function RutasScreen() {
             className="flex-1 ml-2"
             returnKeyType="search"
           />
-          {busqueda.length > 0 && (
-            <Pressable
-              onPress={() => {
-                setBusqueda("");
-                load();
-              }}
-            >
-              <Ionicons name="close-circle" size={18} />
-            </Pressable>
-          )}
         </View>
       </View>
 
@@ -264,12 +306,14 @@ export default function RutasScreen() {
               if (tab === t) load();
               else setTab(t);
             }}
-            className={`flex-1 py-3 px-4 rounded-full ${i === 0 ? "mr-2" : i === 2 ? "ml-2" : "mx-2"
-              } ${tab === t ? "bg-gray-200" : "bg-transparent"}`}
+            className={`flex-1 py-3 px-4 rounded-full ${
+              i === 0 ? "mr-2" : i === 2 ? "ml-2" : "mx-2"
+            } ${tab === t ? "bg-gray-200" : "bg-transparent"}`}
           >
             <Text
-              className={`text-center font-medium ${tab === t ? "text-black" : "text-gray-500"
-                }`}
+              className={`text-center font-medium ${
+                tab === t ? "text-black" : "text-gray-500"
+              }`}
             >
               {t === "todas" ? "Todas" : t === "mias" ? "Mis Rutas" : "Populares"}
             </Text>
@@ -306,6 +350,8 @@ export default function RutasScreen() {
                   params: { id: r.id, data: JSON.stringify(r) },
                 });
               }}
+              showDelete={tab === "mias"}
+              onDelete={() => confirmEliminar(r)}
             />
           ))
         )}
