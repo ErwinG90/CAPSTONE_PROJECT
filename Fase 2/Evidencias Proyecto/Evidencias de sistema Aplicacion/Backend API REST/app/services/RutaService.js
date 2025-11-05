@@ -131,7 +131,28 @@ class RutaService {
         const totalPages = Math.max(1, Math.ceil(result.total / Math.max(1, result.limit)));
         return { ...result, totalPages };
     }
+        
+     // eliminar (creador solamente)
+    async delete({ rutaId, uid }) {
+        console.info(`${new Date().toISOString()} [RutaService] [delete] [START] rutaId=${rutaId} uid=${uid}`);
 
-}
+        const cleanId = String(rutaId || '').trim();
+        const cleanUid = String(uid || '').trim();
+        if (!cleanId) throw new Error('rutaId es requerido');
+        if (!cleanUid) throw new Error('uid es requerido');
+
+        const repo = new RutaRepository();
+        const res = await repo.deleteById({ rutaId: cleanId, uid: cleanUid });
+
+        if (!res?.deletedCount) {
+        const e = new Error('No encontrado o no autorizado');
+        e.status = 404; // o 403 si distingues
+        throw e;
+        }
+
+        console.info(`${new Date().toISOString()} [RutaService] [delete] [END] ok`);
+        return { ok: true };
+    }
+    }
 
 module.exports = RutaService;

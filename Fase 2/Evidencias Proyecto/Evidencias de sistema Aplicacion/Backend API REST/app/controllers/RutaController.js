@@ -105,6 +105,19 @@ class RutaController {
       next(error);
     }
   }
+    async destroy(req, res, next) {
+    try {
+      const rutaId = req.params.id;
+      const uid = req.query.uid || req.headers['x-uid'] || req.user?.uid || null;
+
+      const svc = new RutaService();
+      await svc.delete({ rutaId, uid });
+
+      return res.status(204).send(); // sin contenido
+    } catch (error) {
+      next(error);
+    }
+  }
 
 }
 
