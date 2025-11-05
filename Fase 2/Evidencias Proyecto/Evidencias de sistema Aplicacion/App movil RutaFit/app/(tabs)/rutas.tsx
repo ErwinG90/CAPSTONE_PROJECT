@@ -97,10 +97,7 @@ function RouteRow({
               </View>
 
               {showDelete && (
-                <Pressable
-                  onPress={onDelete}
-                  className="px-3 py-1 rounded-full bg-red-600"
-                >
+                <Pressable onPress={onDelete} className="px-3 py-1 rounded-full bg-red-600">
                   <Text className="text-white text-xs font-semibold">Eliminar</Text>
                 </Pressable>
               )}
@@ -243,16 +240,16 @@ export default function RutasScreen() {
     [tab]
   );
 
-  /** Confirmación + borrado local (y API si existe) */
+  /** Confirmación + borrado */
   const confirmEliminar = (ruta: RutaUI) => {
     Alert.alert(
       "Eliminar ruta",
       `¿Seguro que deseas eliminar “${ruta.nombre}”?`,
       [
-        { text: "No", style: "cancel" },
+        { text: "No", style: "cancel" }, // gris (iOS) / normal (Android)
         {
           text: "Sí, eliminar",
-          style: "destructive",
+          style: "destructive",          // rojo en iOS / énfasis en Android
           onPress: () => doDelete(ruta),
         },
       ]
@@ -261,10 +258,10 @@ export default function RutasScreen() {
 
   const doDelete = async (ruta: RutaUI) => {
     try {
-      // Si tu servicio ya tiene un método de backend, úsalo:
-      // await rutaService.eliminarRuta(ruta.id);
+      // Backend: elimina con autorización por UID
+      await rutaService.eliminarRuta(ruta.id, currentUid);
 
-      // Quitar inmediatamente de la lista local
+      // Optimista: quitar de la lista local
       setList((prev) => prev.filter((x) => x.id !== ruta.id));
     } catch (e: any) {
       Alert.alert("No se pudo eliminar", String(e?.message ?? e));
@@ -294,6 +291,16 @@ export default function RutasScreen() {
             className="flex-1 ml-2"
             returnKeyType="search"
           />
+          {busqueda.length > 0 && (
+            <Pressable
+              onPress={() => {
+                setBusqueda("");
+                load();
+              }}
+            >
+              <Ionicons name="close-circle" size={18} />
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -343,8 +350,6 @@ export default function RutasScreen() {
               key={r.id}
               ruta={r}
               onPress={() => {
-                console.log("🗺️ Ruta seleccionada:", r.nombre);
-                console.log("📍 Coordenadas:", r.recorrido?.coordinates?.length ?? 0, "puntos");
                 router.push({
                   pathname: "/ruta/[id]",
                   params: { id: r.id, data: JSON.stringify(r) },

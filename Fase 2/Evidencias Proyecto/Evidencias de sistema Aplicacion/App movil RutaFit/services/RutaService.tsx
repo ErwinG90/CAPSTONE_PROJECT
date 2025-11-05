@@ -10,7 +10,6 @@ export type ValoracionAPI = {
 };
 
 export class RutaService {
-
   private baseUrl: string;
 
   constructor() {
@@ -19,8 +18,8 @@ export class RutaService {
 
   async crearRuta(ruta: Ruta): Promise<Ruta> {
     try {
-      const response = await axios.post(`${this.baseUrl}/rutas`, ruta);
-      return response.data;
+      const { data } = await axios.post(`${this.baseUrl}/rutas`, ruta);
+      return data;
     } catch (error: any) {
       throw new Error(error?.response?.data?.message || "No se pudo guardar la ruta");
     }
@@ -28,33 +27,23 @@ export class RutaService {
 
   async getRutas(): Promise<Ruta[]> {
     try {
-      console.log("RutaService: Obteniendo rutas...");
-      const response = await axios.get(`${this.baseUrl}/rutas`);
-      console.log("RutaService: Rutas obtenidas:", response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error("RutaService: Error obteniendo rutas:", error);
+      const { data } = await axios.get(`${this.baseUrl}/rutas`);
+      return data;
+    } catch (error) {
       throw new Error("No se pudieron cargar las rutas");
     }
   }
+
   /** 🔹 Obtener SOLO las rutas creadas por el usuario logeado */
   async getMisRutas(uid: string, page = 1, limit = 50, q?: string): Promise<Ruta[]> {
     try {
       if (!uid) throw new Error("UID requerido para obtener tus rutas");
-
-      const url = `${this.baseUrl}/rutas/mias?uid=${uid}&page=${page}&limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""
-        }`;
-
-      console.log("RutaService: Obteniendo rutas del usuario...", url);
-      const response = await axios.get(url);
-
-      // El backend devuelve { data: [...], total, totalPages, ... }
-      const rutas = response.data?.data ?? response.data;
-      console.log("RutaService: Mis rutas obtenidas:", rutas);
-
-      return rutas;
-    } catch (error: any) {
-      console.error("RutaService: Error obteniendo rutas del usuario:", error);
+      const url =
+        `${this.baseUrl}/rutas/mias?uid=${encodeURIComponent(uid)}&page=${page}&limit=${limit}` +
+        (q ? `&q=${encodeURIComponent(q)}` : "");
+      const { data } = await axios.get(url);
+      return data?.data ?? data; // tu API devuelve { data: [...] }
+    } catch (error) {
       throw new Error("No se pudieron cargar tus rutas");
     }
   }
@@ -62,13 +51,20 @@ export class RutaService {
   async getValoracionesRuta(rutaId: string): Promise<ValoracionAPI[]> {
     const url = `${this.baseUrl}/rutas/${rutaId}/valoraciones`;
     const { data } = await axios.get(url);
-    // tu API devuelve { items: [...] } según la captura
     return Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
   }
 
   async calificarRuta(rutaId: string, idUsuario: string, puntuacion: number): Promise<void> {
     const url = `${this.baseUrl}/rutas/${rutaId}/valoraciones`;
     await axios.post(url, { id_usuario: idUsuario, puntuacion });
+  }
+
+  /**Eliminar ruta (solo creador) */
+  async eliminarRuta(rutaId: string, uid: string) {
+    const id = String(rutaId || "").trim();
+    const u = encodeURIComponent(String(uid || "").trim());
+    const url = `${this.baseUrl}/rutas/${id}?uid=${u}`;
+    return axios.delete(url); // devuelve la promesa; el caller decide qué hacer
   }
 }
 
