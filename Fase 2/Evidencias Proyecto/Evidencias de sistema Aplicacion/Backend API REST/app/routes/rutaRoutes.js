@@ -19,4 +19,7 @@ router.post('/:id/valoraciones', (req, res, next) => rutaController.rate(req, re
 // listar valoraciones
 router.get('/:id/valoraciones', (req, res, next) => rutaController.ratings(req, res, next));
 
+// eliminar ruta
+router.delete('/:id', (req, res, next) => rutaController.destroy(req, res, next));
+
 module.exports = router;
