@@ -55,6 +55,12 @@ class RutaRepository {
         return await mongoDBClientRuta.listValoraciones({ rutaId, page, limit });
     }
 
+     async deleteById({ rutaId, uid }) {
+        console.info(`${new Date().toISOString()} [RutaRepository] [deleteById] rutaId=${rutaId} uid=${uid}`);
+        const mongo = new MongoDBClientRuta();
+        return await mongo.deleteById({ rutaId, uid });
+  }
+
 }
 
 module.exports = RutaRepository;

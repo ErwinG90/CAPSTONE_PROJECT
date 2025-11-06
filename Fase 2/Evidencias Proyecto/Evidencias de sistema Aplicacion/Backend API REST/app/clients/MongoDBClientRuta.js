@@ -234,6 +234,22 @@ class MongoDBClientRuta {
             throw error;
         }
     }
+    //Borrar ruta
+  async deleteById({ rutaId, uid }) {
+    try {
+      if (!this.collection) await this.connect();
+
+      const _id = new ObjectId(rutaId);
+
+      // Solo elimina si el usuario es el creador
+      const res = await this.collection.deleteOne({ _id, id_creador: uid });
+
+      return res;
+    } catch (error) {
+      console.error(`${new Date().toISOString()} [MongoDBClientRuta] [deleteById] Error:`, error);
+      throw error;
+    }
+  }
 
 
 }
