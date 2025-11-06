@@ -10,7 +10,8 @@ class Ruta {
         fecha_creacion,
         promedio_valoracion,
         valoraciones,
-        tipo_deporte
+        tipo_deporte,
+        publico
     ) {
         this._id = _id;
         this.id_creador = id_creador;
@@ -23,6 +24,7 @@ class Ruta {
         this.promedio_valoracion = promedio_valoracion || 0;
         this.valoraciones = valoraciones || [];
         this.tipo_deporte = tipo_deporte;
+        this.publico = typeof publico === 'boolean' ? publico : true;
     }
 }
 

@@ -11,7 +11,6 @@ class MongoDBClientRuta {
         console.log(this.uri);
     }
 
-    // conectar y preparar colección
     async connect() {
         try {
             this.client = await MongoClient.connect(this.uri, {
@@ -27,14 +26,12 @@ class MongoDBClientRuta {
         }
     }
 
-    // insertar ruta
     async save(ruta) {
         console.info(`${new Date().toISOString()} [MongoDBClientRuta] [save] [START] Save [${JSON.stringify(ruta)}]`);
         try {
             if (!this.collection) await this.connect();
             const result = await this.collection.insertOne(ruta);
             console.info(`${new Date().toISOString()} [MongoDBClientRuta] [save] [END] Save successful`);
-            // Devolver la ruta con el _id generado
             return {
                 ...ruta,
                 _id: result.insertedId
@@ -45,7 +42,6 @@ class MongoDBClientRuta {
         }
     }
 
-    // listar todas las rutas
     async findAll() {
         try {
             if (!this.collection) await this.connect();
@@ -55,7 +51,7 @@ class MongoDBClientRuta {
             throw error;
         }
     }
-    // Listar rutas del creador 
+
     async findByCreator({ uid, page = 1, limit = 20, q } = {}) {
         try {
             if (!uid) throw new Error('uid es requerido');
@@ -97,7 +93,6 @@ class MongoDBClientRuta {
         }
     }
 
-    // Agregar/actualizar valoración y recalcular promedio
     async addValoracion({ rutaId, id_usuario, puntuacion, comentario }) {
         try {
             if (!this.collection) await this.connect();
@@ -105,19 +100,15 @@ class MongoDBClientRuta {
             const _id = new ObjectId(rutaId);
             const now = new Date();
 
-            // Objeto de valoración a insertar/sobrescribir
             const nuevaVal = {
-                id_usuario,                    // string (o ObjectId si más adelante quieres)
-                puntuacion: Number(puntuacion),// 1..5
+                id_usuario,
+                puntuacion: Number(puntuacion),
                 fecha: now
             };
             if (comentario && String(comentario).trim()) {
                 nuevaVal.comentario = String(comentario).trim();
             }
 
-            // Update con pipeline (MongoDB 4.2+): 
-            // 1) Reemplaza la valoración del mismo usuario (si existe) por la nueva.
-            // 2) Recalcula promedio_valoracion sobre todo el array.
             const result = await this.collection.updateOne(
                 { _id },
                 [
@@ -131,7 +122,6 @@ class MongoDBClientRuta {
                                     in: {
                                         $concatArrays: [
                                             {
-                                                // Filtra cualquier valoración previa del mismo usuario
                                                 $filter: {
                                                     input: "$$base",
                                                     as: "v",
@@ -173,7 +163,6 @@ class MongoDBClientRuta {
                 throw e;
             }
 
-            // Devuelve la ruta actualizada
             const updated = await this.collection.findOne({ _id });
             return updated;
         } catch (error) {
@@ -196,12 +185,9 @@ class MongoDBClientRuta {
                 { $project: { valoraciones: { $ifNull: ["$valoraciones", []] } } },
                 { $unwind: { path: "$valoraciones", preserveNullAndEmptyArrays: false } },
                 { $replaceRoot: { newRoot: "$valoraciones" } },
-
-                // Buscamos en ambas colecciones posibles: 'users' (backend actual) y 'usuarios' (tu esquema)
                 { $lookup: { from: "users", localField: "id_usuario", foreignField: "_id", as: "u1" } },
                 { $lookup: { from: "usuarios", localField: "id_usuario", foreignField: "_id", as: "u2" } },
                 { $addFields: { user: { $ifNull: [{ $arrayElemAt: ["$u1", 0] }, { $arrayElemAt: ["$u2", 0] }] } } },
-
                 {
                     $project: {
                         _id: 0,
@@ -216,12 +202,7 @@ class MongoDBClientRuta {
                     }
                 },
                 { $sort: { fecha: -1 } },
-                {
-                    $facet: {
-                        items: [{ $skip: skip }, { $limit: l }],
-                        total: [{ $count: "count" }]
-                    }
-                }
+                { $facet: { items: [{ $skip: skip }, { $limit: l }], total: [{ $count: "count" }] } }
             ];
 
             const [res] = await this.collection.aggregate(pipeline).toArray();
@@ -235,88 +216,112 @@ class MongoDBClientRuta {
         }
     }
     //Borrar ruta
-  async deleteById({ rutaId, uid }) {
-    try {
-      if (!this.collection) await this.connect();
+    async deleteById({ rutaId, uid }) {
+        try {
+            if (!this.collection) await this.connect();
 
-      const _id = new ObjectId(rutaId);
+            const _id = new ObjectId(rutaId);
 
-      // Solo elimina si el usuario es el creador
-      const res = await this.collection.deleteOne({ _id, id_creador: uid });
+            // Solo elimina si el usuario es el creador
+            const res = await this.collection.deleteOne({ _id, id_creador: uid });
 
-      return res;
-    } catch (error) {
-      console.error(`${new Date().toISOString()} [MongoDBClientRuta] [deleteById] Error:`, error);
-      throw error;
+            return res;
+        } catch (error) {
+            console.error(`${new Date().toISOString()} [MongoDBClientRuta] [deleteById] Error:`, error);
+            throw error;
+        }
     }
-  }
- async findPopular({ page = 1, limit = 20, minRatings = 1, top } = {}) {
-  try {
-    if (!this.collection) await this.connect();
+    async findPopular({ page = 1, limit = 20, minRatings = 1, top } = {}) {
+        try {
+            if (!this.collection) await this.connect();
 
-    const p = 1; // si viene "top", ignoramos paginado clásico
-    const l = top ? Math.max(1, Number(top)) : Math.max(1, Number(limit));
-    const min = Math.max(1, Number(minRatings));
+            const p = 1; // si viene "top", ignoramos paginado clásico
+            const l = top ? Math.max(1, Number(top)) : Math.max(1, Number(limit));
+            const min = Math.max(1, Number(minRatings));
 
-    const pipeline = [
-      // ✅ Solo rutas con al menos 1 valoración (descarta [] y campo inexistente)
-      { $match: { "valoraciones.0": { $exists: true } } },
+            const pipeline = [
+                // ✅ Solo rutas con al menos 1 valoración (descarta [] y campo inexistente)
+                { $match: { "valoraciones.0": { $exists: true } } },
 
-      // cuenta valoraciones
-      { $addFields: { ratingCount: { $size: { $ifNull: ["$valoraciones", []] } } } },
+                // cuenta valoraciones
+                { $addFields: { ratingCount: { $size: { $ifNull: ["$valoraciones", []] } } } },
 
-      // exige mínimo N valoraciones
-      { $match: { ratingCount: { $gte: min } } },
+                // exige mínimo N valoraciones
+                { $match: { ratingCount: { $gte: min } } },
 
-      // descarta promedios 0
-      { $match: { promedio_valoracion: { $gt: 0 } } },
+                // descarta promedios 0
+                { $match: { promedio_valoracion: { $gt: 0 } } },
 
-      // orden: mejor promedio → más votos → más nueva
-      { $sort: { promedio_valoracion: -1, ratingCount: -1, fecha_creacion: -1, _id: -1 } },
+                // orden: mejor promedio → más votos → más nueva
+                { $sort: { promedio_valoracion: -1, ratingCount: -1, fecha_creacion: -1, _id: -1 } },
 
-      // si pides "top", cortamos directo; si no, dejamos facet para paginado
-      ...(top
-        ? [{ $limit: l }]
-        : [
-            {
-              $facet: {
-                data: [{ $skip: (Math.max(1, Number(page)) - 1) * l }, { $limit: l }],
-                total: [{ $count: "count" }],
-              }
-            },
-            {
-              $project: {
-                data: 1,
-                total: 1,
-                page: { $literal: Math.max(1, Number(page)) },
-                limit: { $literal: l },
-                totalPages: {
-                  $cond: [
-                    { $gt: [{ $arrayElemAt: ["$total.count", 0] }, 0] },
-                    { $ceil: { $divide: [{ $arrayElemAt: ["$total.count", 0] }, l] } },
-                    1
-                  ]
-                }
-              }
+                // si pides "top", cortamos directo; si no, dejamos facet para paginado
+                ...(top
+                    ? [{ $limit: l }]
+                    : [
+                        {
+                            $facet: {
+                                data: [{ $skip: (Math.max(1, Number(page)) - 1) * l }, { $limit: l }],
+                                total: [{ $count: "count" }],
+                            }
+                        },
+                        {
+                            $project: {
+                                data: 1,
+                                total: 1,
+                                page: { $literal: Math.max(1, Number(page)) },
+                                limit: { $literal: l },
+                                totalPages: {
+                                    $cond: [
+                                        { $gt: [{ $arrayElemAt: ["$total.count", 0] }, 0] },
+                                        { $ceil: { $divide: [{ $arrayElemAt: ["$total.count", 0] }, l] } },
+                                        1
+                                    ]
+                                }
+                            }
+                        }
+                    ]),
+            ];
+
+            if (top) {
+                // respuesta simple: arreglo y metadatos mínimos
+                const data = await this.collection.aggregate(pipeline).toArray();
+                return { data, page: 1, limit: l, total: data.length, totalPages: 1 };
+            } else {
+                const [res] = await this.collection.aggregate(pipeline).toArray();
+                const data = res?.data ?? [];
+                const total = res?.total?.[0]?.count ?? 0;
+                return { data, page: res?.page ?? 1, limit: l, total, totalPages: res?.totalPages ?? 1 };
             }
-          ]),
-    ];
-
-    if (top) {
-      // respuesta simple: arreglo y metadatos mínimos
-      const data = await this.collection.aggregate(pipeline).toArray();
-      return { data, page: 1, limit: l, total: data.length, totalPages: 1 };
-    } else {
-      const [res] = await this.collection.aggregate(pipeline).toArray();
-      const data = res?.data ?? [];
-      const total = res?.total?.[0]?.count ?? 0;
-      return { data, page: res?.page ?? 1, limit: l, total, totalPages: res?.totalPages ?? 1 };
+        } catch (error) {
+            console.error(`${new Date().toISOString()} [MongoDBClientRuta] [findPopular] Error:`, error);
+            throw error;
+        }
     }
-  } catch (error) {
-    console.error(`${new Date().toISOString()} [MongoDBClientRuta] [findPopular] Error:`, error);
-    throw error;
-  }
-}
+
+    async updatePublico({ rutaId, publico }) {
+        try {
+            if (!this.collection) await this.connect();
+            const _id = new ObjectId(rutaId);
+
+            const result = await this.collection.updateOne(
+                { _id },
+                { $set: { publico: Boolean(publico) } }
+            );
+
+            if (result.matchedCount === 0) {
+                const e = new Error("Ruta no encontrada");
+                e.status = 404;
+                throw e;
+            }
+
+            return await this.collection.findOne({ _id });
+        } catch (error) {
+            console.error(`${new Date().toISOString()} [MongoDBClientRuta] [updatePublico] Error:`, error);
+            throw error;
+        }
+    }
 
 }
+
 module.exports = MongoDBClientRuta;
