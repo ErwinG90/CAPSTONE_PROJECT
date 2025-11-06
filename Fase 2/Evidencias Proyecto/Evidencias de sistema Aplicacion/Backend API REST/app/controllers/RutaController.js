@@ -107,6 +107,36 @@ class RutaController {
       next(error);
     }
   }
+    async destroy(req, res, next) {
+    try {
+      const rutaId = req.params.id;
+      const uid = req.query.uid || req.headers['x-uid'] || req.user?.uid || null;
+
+      const svc = new RutaService();
+      await svc.delete({ rutaId, uid });
+
+      return res.status(204).send(); // sin contenido
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async popular(req, res, next) {
+    try {
+      const page = Number(req.query.page ?? 1);
+      const limit = Number(req.query.limit ?? 20);
+      const minRatings = Number(req.query.minRatings ?? 1);
+      console.info(`[RutaController] /populares page=${page} limit=${limit} minRatings=${minRatings}`);
+
+      const svc = new RutaService();
+      const result = await svc.findPopular({ page, limit, minRatings });
+
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
 
   // PUT /rutas/:id/publico   { publico: true|false }
   async setPublico(req, res, next) {

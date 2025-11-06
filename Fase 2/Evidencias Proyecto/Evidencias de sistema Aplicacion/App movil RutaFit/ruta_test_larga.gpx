@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RutaFit" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Ruta Mountain View Larga</name>
+    <trkseg>
+      <trkpt lat="37.4239559" lon="-122.0856973"></trkpt>
+      <trkpt lat="37.4235" lon="-122.0852"></trkpt>
+      <trkpt lat="37.4232" lon="-122.0848"></trkpt>
+      <trkpt lat="37.4228" lon="-122.0844"></trkpt>
+      <trkpt lat="37.4225" lon="-122.0841"></trkpt>
+      <trkpt lat="37.4222" lon="-122.0838"></trkpt>
+      <trkpt lat="37.4219983" lon="-122.084"></trkpt>
+      <trkpt lat="37.4217" lon="-122.0837"></trkpt>
+      <trkpt lat="37.4214" lon="-122.0834"></trkpt>
+      <trkpt lat="37.4211" lon="-122.0831"></trkpt>
+      <trkpt lat="37.4208" lon="-122.0828"></trkpt>
+      <trkpt lat="37.4205" lon="-122.0825"></trkpt>
+      <trkpt lat="37.4202" lon="-122.0822"></trkpt>
+      <trkpt lat="37.4199" lon="-122.0819"></trkpt>
+      <trkpt lat="37.4196" lon="-122.0816"></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

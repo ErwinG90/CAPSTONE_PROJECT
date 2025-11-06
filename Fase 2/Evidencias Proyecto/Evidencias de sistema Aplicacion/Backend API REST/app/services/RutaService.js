@@ -120,6 +120,44 @@ class RutaService {
         const totalPages = Math.max(1, Math.ceil(result.total / Math.max(1, result.limit)));
         return { ...result, totalPages };
     }
+    async delete({ rutaId, uid }) {
+  console.info(`${new Date().toISOString()} [RutaService] [delete] [START] rutaId=${rutaId} uid=${uid}`);
+
+  const cleanId = String(rutaId || '').trim();
+  const cleanUid = String(uid || '').trim();
+  if (!cleanId) throw new Error('rutaId es requerido');
+  if (!cleanUid) throw new Error('uid es requerido');
+
+  const repo = new RutaRepository();
+  const res = await repo.deleteById({ rutaId: cleanId, uid: cleanUid });
+
+  if (!res?.deletedCount) {
+    const e = new Error('No encontrado o no autorizado');
+    e.status = 404;
+    throw e;
+  }
+
+  // --- NUEVO: quitar la referencia en users.rutas ---
+  try {
+    const userRepo = new UserRepository();
+    await userRepo.pullRuta(cleanUid, cleanId);
+  } catch (err) {
+    console.warn('[RutaService][delete] No se pudo quitar ref de users.rutas:', err?.message || err);
+    // no re-lanzamos: la ruta ya fue borrada
+  }
+
+  console.info(`${new Date().toISOString()} [RutaService] [delete] [END] ok`);
+  return { ok: true };
+}
+        
+     
+
+    async findPopular({ page = 1, limit = 20, minRatings = 1, top } = {}) {
+  const repo = new RutaRepository();
+  return await repo.findPopular({ page, limit, minRatings, top });
+}
+
+
 
     // cambiar visibilidad (PUT)
     async cambiarVisibilidad({ rutaId, publico }) {

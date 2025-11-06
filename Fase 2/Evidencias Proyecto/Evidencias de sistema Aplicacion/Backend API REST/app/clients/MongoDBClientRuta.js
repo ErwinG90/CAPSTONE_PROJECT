@@ -215,8 +215,90 @@ class MongoDBClientRuta {
             throw error;
         }
     }
+    //Borrar ruta
+    async deleteById({ rutaId, uid }) {
+        try {
+            if (!this.collection) await this.connect();
 
-    // NUEVO: actualizar el flag 'publico' mediante PUT
+            const _id = new ObjectId(rutaId);
+
+            // Solo elimina si el usuario es el creador
+            const res = await this.collection.deleteOne({ _id, id_creador: uid });
+
+            return res;
+        } catch (error) {
+            console.error(`${new Date().toISOString()} [MongoDBClientRuta] [deleteById] Error:`, error);
+            throw error;
+        }
+    }
+    async findPopular({ page = 1, limit = 20, minRatings = 1, top } = {}) {
+        try {
+            if (!this.collection) await this.connect();
+
+            const p = 1; // si viene "top", ignoramos paginado clásico
+            const l = top ? Math.max(1, Number(top)) : Math.max(1, Number(limit));
+            const min = Math.max(1, Number(minRatings));
+
+            const pipeline = [
+                // ✅ Solo rutas con al menos 1 valoración (descarta [] y campo inexistente)
+                { $match: { "valoraciones.0": { $exists: true } } },
+
+                // cuenta valoraciones
+                { $addFields: { ratingCount: { $size: { $ifNull: ["$valoraciones", []] } } } },
+
+                // exige mínimo N valoraciones
+                { $match: { ratingCount: { $gte: min } } },
+
+                // descarta promedios 0
+                { $match: { promedio_valoracion: { $gt: 0 } } },
+
+                // orden: mejor promedio → más votos → más nueva
+                { $sort: { promedio_valoracion: -1, ratingCount: -1, fecha_creacion: -1, _id: -1 } },
+
+                // si pides "top", cortamos directo; si no, dejamos facet para paginado
+                ...(top
+                    ? [{ $limit: l }]
+                    : [
+                        {
+                            $facet: {
+                                data: [{ $skip: (Math.max(1, Number(page)) - 1) * l }, { $limit: l }],
+                                total: [{ $count: "count" }],
+                            }
+                        },
+                        {
+                            $project: {
+                                data: 1,
+                                total: 1,
+                                page: { $literal: Math.max(1, Number(page)) },
+                                limit: { $literal: l },
+                                totalPages: {
+                                    $cond: [
+                                        { $gt: [{ $arrayElemAt: ["$total.count", 0] }, 0] },
+                                        { $ceil: { $divide: [{ $arrayElemAt: ["$total.count", 0] }, l] } },
+                                        1
+                                    ]
+                                }
+                            }
+                        }
+                    ]),
+            ];
+
+            if (top) {
+                // respuesta simple: arreglo y metadatos mínimos
+                const data = await this.collection.aggregate(pipeline).toArray();
+                return { data, page: 1, limit: l, total: data.length, totalPages: 1 };
+            } else {
+                const [res] = await this.collection.aggregate(pipeline).toArray();
+                const data = res?.data ?? [];
+                const total = res?.total?.[0]?.count ?? 0;
+                return { data, page: res?.page ?? 1, limit: l, total, totalPages: res?.totalPages ?? 1 };
+            }
+        } catch (error) {
+            console.error(`${new Date().toISOString()} [MongoDBClientRuta] [findPopular] Error:`, error);
+            throw error;
+        }
+    }
+
     async updatePublico({ rutaId, publico }) {
         try {
             if (!this.collection) await this.connect();
@@ -239,6 +321,7 @@ class MongoDBClientRuta {
             throw error;
         }
     }
+
 }
 
 module.exports = MongoDBClientRuta;

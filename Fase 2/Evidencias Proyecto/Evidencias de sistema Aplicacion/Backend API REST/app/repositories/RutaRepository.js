@@ -46,12 +46,23 @@ class RutaRepository {
         return await mongoDBClientRuta.listValoraciones({ rutaId, page, limit });
     }
 
-    // NUEVO: actualizar el flag 'publico'
+    async deleteById({ rutaId, uid }) {
+        console.info(`${new Date().toISOString()} [RutaRepository] [deleteById] rutaId=${rutaId} uid=${uid}`);
+        const mongo = new MongoDBClientRuta();
+        return await mongo.deleteById({ rutaId, uid });
+    }
+
+    async findPopular({ page = 1, limit = 20, minRatings = 1, top } = {}) {
+        const mongo = new MongoDBClientRuta();
+        return await mongo.findPopular({ page, limit, minRatings, top });
+    }
+
     async updatePublico({ rutaId, publico }) {
         console.info(`${new Date().toISOString()} [RutaRepository] [updatePublico] rutaId=${rutaId} publico=${publico}`);
         const mongoDBClientRuta = new MongoDBClientRuta();
         return await mongoDBClientRuta.updatePublico({ rutaId, publico });
     }
+
 }
 
 module.exports = RutaRepository;

@@ -64,6 +64,13 @@ class UserRepository {
         console.info(`${new Date().toISOString()} [UserRepository] [update] [END]`);
         return fresh;
     }
+
+    async pullRuta(uid, rutaId) {
+    const mongo = new MongoDBClientUser();
+    return await mongo.pullRuta(uid, rutaId);
+  }
+
+
 }
 
 module.exports = UserRepository;
