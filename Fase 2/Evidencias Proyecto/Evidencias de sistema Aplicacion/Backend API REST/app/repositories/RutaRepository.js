@@ -61,6 +61,12 @@ class RutaRepository {
         return await mongo.deleteById({ rutaId, uid });
   }
 
+    async findPopular({ page = 1, limit = 20, minRatings = 1, top } = {}) {
+  const mongo = new MongoDBClientRuta();
+  return await mongo.findPopular({ page, limit, minRatings, top });
+}
+
+
 }
 
 module.exports = RutaRepository;

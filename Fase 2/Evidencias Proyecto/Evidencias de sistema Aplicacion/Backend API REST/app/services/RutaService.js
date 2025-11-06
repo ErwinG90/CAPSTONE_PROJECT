@@ -153,6 +153,14 @@ class RutaService {
         console.info(`${new Date().toISOString()} [RutaService] [delete] [END] ok`);
         return { ok: true };
     }
-    }
+
+    async findPopular({ page = 1, limit = 20, minRatings = 1, top } = {}) {
+  const repo = new RutaRepository();
+  return await repo.findPopular({ page, limit, minRatings, top });
+}
+
+
+
+}
 
 module.exports = RutaService;
