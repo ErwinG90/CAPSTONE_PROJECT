@@ -23,7 +23,7 @@ class RutaController {
         valoraciones: data.valoraciones || [],
         promedio_valoracion: data.promedio_valoracion || 0,
         fecha_creacion: data.fecha_creacion,
-        publico: typeof data.publico === 'boolean' ? data.publico : true // <-- NUEVO
+        publico: Object.prototype.hasOwnProperty.call(data, 'publico') ? Boolean(data.publico) : undefined
       });
 
       const rutaService = new RutaService();
@@ -107,7 +107,7 @@ class RutaController {
       next(error);
     }
   }
-    async destroy(req, res, next) {
+  async destroy(req, res, next) {
     try {
       const rutaId = req.params.id;
       const uid = req.query.uid || req.headers['x-uid'] || req.user?.uid || null;

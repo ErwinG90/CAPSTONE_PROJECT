@@ -109,7 +109,25 @@ export class RutaService {
       } catch {
         throw new Error("No se pudieron cargar las rutas populares");
       }
-    }   
+    }
+  }
+
+  async updatePublico(rutaId: string, publico: boolean) {
+    const id = String(rutaId || "").trim();
+    const url = `${this.baseUrl}/rutas/${id}/publico`;
+
+    try {
+      return await axios.patch(url, { publico }, {
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err: any) {
+      if (err?.response?.status === 405 || err?.response?.status === 404) {
+        return await axios.put(url, { publico }, {
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(err?.response?.data?.message || "No se pudo actualizar la visibilidad");
+    }
   }
 }
 

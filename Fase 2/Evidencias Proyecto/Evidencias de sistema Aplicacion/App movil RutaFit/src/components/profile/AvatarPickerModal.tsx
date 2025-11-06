@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Modal, View, Text, Pressable, FlatList, Image } from "react-native";
 import { AVATAR_KEYS, AVATAR_IMAGES, AvatarKey } from "../../Constants";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Props = {
     visible: boolean;
@@ -12,6 +13,7 @@ type Props = {
 
 export default function AvatarPickerModal({ visible, initial, onCancel, onSave }: Props) {
     const [selected, setSelected] = useState<string | null>(initial ?? null);
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         setSelected(initial ?? null);
@@ -20,7 +22,9 @@ export default function AvatarPickerModal({ visible, initial, onCancel, onSave }
     return (
         <Modal visible={visible} animationType="slide" transparent>
             <View className="flex-1 bg-black/40 items-center justify-end">
-                <View className="w-full bg-white rounded-t-3xl p-4">
+                <View
+                    className="w-full bg-white rounded-t-3xl p-4"
+                    style={{ paddingBottom: insets.bottom + 12 }}>
                     <Text className="text-xl font-semibold text-center mb-3">Elige tu avatar</Text>
 
                     <FlatList

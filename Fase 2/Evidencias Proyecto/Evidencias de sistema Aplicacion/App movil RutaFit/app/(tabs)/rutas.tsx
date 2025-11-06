@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  Switch
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,6 +31,7 @@ type RutaUI = {
   creadorId?: string;
   fechaCreacion?: string | Date;
   recorrido?: { type: "LineString"; coordinates: [number, number][] };
+  publico?: boolean;
 };
 
 /** ===== Helpers ===== */
@@ -39,6 +41,7 @@ const fmtRating = (r?: number, c?: number) =>
 
 /** Mapear documento/DTO del backend -> UI */
 function adaptRutaToUI(r: any): RutaUI {
+  const x = r as any;
   return {
     id: r._id ?? r.id ?? String(Math.random()),
     nombre: r.nombre_ruta ?? r.nombre ?? "Ruta",
@@ -51,6 +54,7 @@ function adaptRutaToUI(r: any): RutaUI {
     creadorId: r.id_creador ?? r.creadorId ?? undefined,
     fechaCreacion: r.fecha_creacion ?? undefined,
     recorrido: r.recorrido,
+    publico: x.publico !== false,
   };
 }
 
@@ -60,11 +64,15 @@ function RouteRow({
   onPress,
   showDelete,
   onDelete,
+  publico,
+  onTogglePublico,
 }: {
   ruta: RutaUI;
   onPress?: () => void;
   showDelete?: boolean;
   onDelete?: () => void;
+  publico?: boolean;
+  onTogglePublico?: (v: boolean) => void;
 }) {
   const [isPressed, setIsPressed] = React.useState(false);
 
@@ -73,34 +81,44 @@ function RouteRow({
       onPress={onPress}
       onPressIn={() => setIsPressed(true)}
       onPressOut={() => setIsPressed(false)}
-      className={`rounded-2xl bg-white mb-4 px-5 py-4 shadow-sm ${
-        isPressed ? "border-2 border-green-500" : "border border-gray-200"
-      }`}
+      className={`rounded-2xl bg-white mb-4 px-5 py-4 shadow-sm ${isPressed ? "border-2 border-green-500" : "border border-gray-200"
+        }`}
       android_ripple={{ color: "#bbf7d0", borderless: false }}
     >
-      <View className="flex-row items-start">
-        <View className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center mr-3">
+      <View className="flex-row items-stretch">
+        {/* Izquierda: icono */}
+        <View className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center mr-3 mt-1">
           <Ionicons name="map-outline" size={18} />
         </View>
 
-        <View className="flex-1 mr-2">
+        {/* Centro: textos y chips */}
+        <View className="flex-1 mr-3">
+          {/* ——— Header nombre + rating + badge visibilidad ——— */}
           <View className="flex-row items-center justify-between">
-            <Text className="text-base font-semibold flex-1" numberOfLines={1}>
+            <Text className="text-base font-semibold flex-1 mr-2" numberOfLines={1}>
               {ruta.nombre}
             </Text>
 
-            <View className="flex-row items-center gap-2">
-              <View className="flex-row items-center">
+            <View className="flex-row items-center">
+              {/* rating */}
+              <View className="flex-row items-center mr-2">
                 <Ionicons name="star" size={14} color="#facc15" />
                 <Text className="text-xs ml-1 text-gray-700">
                   {fmtRating(ruta.rating, ruta.ratingCount)}
                 </Text>
               </View>
 
+              {/* badge Pública/Privada (solo en Mis Rutas) */}
               {showDelete && (
-                <Pressable onPress={onDelete} className="px-3 py-1 rounded-full bg-red-600">
-                  <Text className="text-white text-xs font-semibold">Eliminar</Text>
-                </Pressable>
+                <View
+                  className={`px-2 py-1 rounded-full ${publico ? "bg-green-50 border border-green-200" : "bg-gray-100 border border-gray-200"
+                    }`}
+                >
+                  <Text className={`text-[11px] ${publico ? "text-green-700" : "text-gray-600"
+                    }`}>
+                    {publico ? "Pública" : "Privada"}
+                  </Text>
+                </View>
               )}
             </View>
           </View>
@@ -141,11 +159,48 @@ function RouteRow({
               <Text className="text-xs">—</Text>
             </View>
           </View>
+          {/* ——— Barra de acciones (solo en Mis Rutas) ——— */}
+          {showDelete && (
+            <View className="mt-3 border-t border-gray-100 pt-3">
+              <View className="flex-row items-center">
+                {/* Botón Hacer Pública/Privada (estilo compartir) */}
+                <Pressable
+                  onPress={() => onTogglePublico?.(!publico)}
+                  hitSlop={8}
+                  className="flex-1 h-9 mr-2 rounded-full border border-gray-300 bg-white items-center justify-center"
+                  android_ripple={{ color: "#e5e7eb" }} // gris claro
+                >
+                  <View className="flex-row items-center">
+                    <Ionicons
+                      name={publico ? "lock-closed-outline" : "earth-outline"}
+                      size={14}
+                      color={publico ? "#6b7280" : "#16a34a"} // gris / verde RutaFit
+                    />
+                    <Text
+                      className={`ml-2 text-[13px] font-semibold ${publico ? "text-gray-600" : "text-green-600"
+                        }`}
+                    >
+                      {publico ? "Hacer Privada" : "Hacer Pública"}
+                    </Text>
+                  </View>
+                </Pressable>
+
+                {/* Botón Eliminar (rojo) */}
+                <Pressable
+                  onPress={onDelete}
+                  hitSlop={8}
+                  className="flex-row items-center justify-center h-9 px-3 rounded-full bg-red-600 active:bg-red-700 border border-red-700/20"
+                  android_ripple={{ color: "#fecaca" }}
+                >
+                  <Ionicons name="trash-outline" size={14} color="#fff" />
+                  <Text className="ml-2 text-white text-[13px] font-semibold">Eliminar</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
         </View>
 
-        <View className="justify-center">
-          <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-        </View>
+
       </View>
     </Pressable>
   );
@@ -187,6 +242,19 @@ export default function RutasScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda]);
 
+  const togglePublico = async (ruta: RutaUI, nuevo: boolean) => {
+    // Optimistic UI
+    setList(prev => prev.map(x => x.id === ruta.id ? { ...x, publico: nuevo } : x));
+
+    try {
+      await rutaService.updatePublico(ruta.id, nuevo); // <-- sin uid
+    } catch (e: any) {
+      // Revertir si falla
+      setList(prev => prev.map(x => x.id === ruta.id ? { ...x, publico: !nuevo } : x));
+      Alert.alert("No se pudo actualizar", String(e?.message ?? e));
+    }
+  };
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -199,19 +267,20 @@ export default function RutasScreen() {
 
       if (tab === "todas") {
         const res = await rutaService.getRutas();
-        setList(res.map(adaptRutaToUI));
+        const mapped: RutaUI[] = (res as unknown[]).map(adaptRutaToUI);
+        setList(mapped.filter((r: RutaUI) => r.publico !== false));
       } else if (tab === "mias") {
         if (!currentUid) {
           setList([]);
           setError("Inicia sesión para ver tus rutas.");
         } else {
           const data = await rutaService.getMisRutas(currentUid, 1, 50, busqueda);
-          setList((data ?? []).map(adaptRutaToUI));
+          setList((data ?? []).map(adaptRutaToUI)); // ⬅️ en “mias” se muestran todas
         }
       } else if (tab === "populares") {
-        // Solo rutas con valoraciones y promedio > 0 (el backend ya filtra y ordena)
-        const data = await rutaService.getRutasPopulares(20, 1); // top=20, minRatings=1
-        setList((data ?? []).map(adaptRutaToUI));
+        const data = await rutaService.getRutasPopulares(20, 1);
+        const mapped: RutaUI[] = (data ?? []).map(adaptRutaToUI);
+        setList(mapped.filter((r: RutaUI) => r.publico !== false));
       }
     } catch (e: any) {
       console.error(e);
@@ -236,8 +305,8 @@ export default function RutasScreen() {
       tab === "todas"
         ? "Descubre y explora rutas increíbles"
         : tab === "mias"
-        ? "Tus rutas creadas o guardadas"
-        : "Rutas más valoradas",
+          ? "Tus rutas creadas o guardadas"
+          : "Rutas más valoradas",
     [tab]
   );
 
@@ -311,14 +380,12 @@ export default function RutasScreen() {
               if (tab === t) load();
               else setTab(t);
             }}
-            className={`flex-1 py-3 px-4 rounded-full ${
-              i === 0 ? "mr-2" : i === 2 ? "ml-2" : "mx-2"
-            } ${tab === t ? "bg-gray-200" : "bg-transparent"}`}
+            className={`flex-1 py-3 px-4 rounded-full ${i === 0 ? "mr-2" : i === 2 ? "ml-2" : "mx-2"
+              } ${tab === t ? "bg-gray-200" : "bg-transparent"}`}
           >
             <Text
-              className={`text-center font-medium ${
-                tab === t ? "text-black" : "text-gray-500"
-              }`}
+              className={`text-center font-medium ${tab === t ? "text-black" : "text-gray-500"
+                }`}
             >
               {t === "todas" ? "Todas" : t === "mias" ? "Mis Rutas" : "Populares"}
             </Text>
@@ -343,8 +410,8 @@ export default function RutasScreen() {
             {tab === "mias"
               ? "Aún no tienes rutas creadas"
               : tab === "populares"
-              ? "Aún no hay rutas con valoraciones"
-              : "No hay rutas disponibles"}
+                ? "Aún no hay rutas con valoraciones"
+                : "No hay rutas disponibles"}
           </Text>
         ) : (
           list.map((r) => (
@@ -359,6 +426,8 @@ export default function RutasScreen() {
               }}
               showDelete={tab === "mias"}
               onDelete={() => confirmEliminar(r)}
+              publico={r.publico}
+              onTogglePublico={(v) => togglePublico(r, v)}
             />
           ))
         )}
