@@ -1,3 +1,4 @@
+// app/(tabs)/rutas.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
@@ -142,7 +143,6 @@ function RouteRow({
           </View>
         </View>
 
-        {/* Chevron indicador visual */}
         <View className="justify-center">
           <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
         </View>
@@ -173,10 +173,10 @@ export default function RutasScreen() {
     })();
   }, [currentUid]);
 
-  // Debounce para búsqueda
+  // Debounce de búsqueda SOLO para "todas" y "mias"
   const searchTimer = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    if (tab !== "todas" && tab !== "mias") return; // populares aún no implementado
+    if (tab !== "todas" && tab !== "mias") return;
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
       load();
@@ -198,7 +198,7 @@ export default function RutasScreen() {
       setError(null);
 
       if (tab === "todas") {
-        const res = await rutaService.getRutas(); // Ruta[]
+        const res = await rutaService.getRutas();
         setList(res.map(adaptRutaToUI));
       } else if (tab === "mias") {
         if (!currentUid) {
@@ -208,9 +208,10 @@ export default function RutasScreen() {
           const data = await rutaService.getMisRutas(currentUid, 1, 50, busqueda);
           setList((data ?? []).map(adaptRutaToUI));
         }
-      } else {
-        // Populares: implementa cuando tengas endpoint
-        setList([]);
+      } else if (tab === "populares") {
+        // Solo rutas con valoraciones y promedio > 0 (el backend ya filtra y ordena)
+        const data = await rutaService.getRutasPopulares(20, 1); // top=20, minRatings=1
+        setList((data ?? []).map(adaptRutaToUI));
       }
     } catch (e: any) {
       console.error(e);
@@ -246,10 +247,10 @@ export default function RutasScreen() {
       "Eliminar ruta",
       `¿Seguro que deseas eliminar “${ruta.nombre}”?`,
       [
-        { text: "No", style: "cancel" }, // gris (iOS) / normal (Android)
+        { text: "No", style: "cancel" },
         {
           text: "Sí, eliminar",
-          style: "destructive",          // rojo en iOS / énfasis en Android
+          style: "destructive",
           onPress: () => doDelete(ruta),
         },
       ]
@@ -258,10 +259,7 @@ export default function RutasScreen() {
 
   const doDelete = async (ruta: RutaUI) => {
     try {
-      // Backend: elimina con autorización por UID
       await rutaService.eliminarRuta(ruta.id, currentUid);
-
-      // Optimista: quitar de la lista local
       setList((prev) => prev.filter((x) => x.id !== ruta.id));
     } catch (e: any) {
       Alert.alert("No se pudo eliminar", String(e?.message ?? e));
@@ -342,7 +340,11 @@ export default function RutasScreen() {
           <Text className="text-red-500 text-center mt-20 px-4">{error}</Text>
         ) : list.length === 0 ? (
           <Text className="text-gray-400 text-center mt-20">
-            {tab === "mias" ? "Aún no tienes rutas creadas" : "No hay rutas disponibles"}
+            {tab === "mias"
+              ? "Aún no tienes rutas creadas"
+              : tab === "populares"
+              ? "Aún no hay rutas con valoraciones"
+              : "No hay rutas disponibles"}
           </Text>
         ) : (
           list.map((r) => (
