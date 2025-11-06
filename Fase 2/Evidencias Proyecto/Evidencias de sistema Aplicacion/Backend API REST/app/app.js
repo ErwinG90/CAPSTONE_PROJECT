@@ -5,7 +5,11 @@ const config = require('./configs/config');
 const requestLoggerMiddleware = require('./middlewares/request-logger.middleware');
 const errorMiddleware = require('./middlewares/error.middleware');
 
-server.use(config.server.context + config.swagger.endpoint, swaggerUi.serve, swaggerUi.setup(config.swagger.document, config.swagger.uiOptions));
+server.use(
+  config.server.context + config.swagger.endpoint,
+  swaggerUi.serve,
+  swaggerUi.setup(config.swagger.document, config.swagger.uiOptions)
+);
 
 server.use(requestLoggerMiddleware);
 

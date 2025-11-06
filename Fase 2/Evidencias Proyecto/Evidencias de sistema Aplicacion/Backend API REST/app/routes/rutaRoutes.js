@@ -1,3 +1,4 @@
+// app/routes/rutaRoutes.js
 const express = require('express');
 const router = express.Router();
 const RutaController = require('../controllers/RutaController');
@@ -10,7 +11,10 @@ router.post('/', (req, res, next) => rutaController.save(req, res, next));
 // listar todas las rutas
 router.get('/', (req, res, next) => rutaController.findAll(req, res, next));
 
-// listar rutas del usuario 
+// POPULARES (arriba, antes de cualquier '/:id')
+router.get('/populares', (req, res, next) => rutaController.popular(req, res, next));
+
+// listar “mias”
 router.get('/mias', (req, res, next) => rutaController.findMine(req, res, next));
 
 // calificar una ruta

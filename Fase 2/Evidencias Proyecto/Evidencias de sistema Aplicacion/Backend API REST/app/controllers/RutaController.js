@@ -119,6 +119,23 @@ class RutaController {
     }
   }
 
+  async popular(req, res, next) {
+    try {
+      const page = Number(req.query.page ?? 1);
+      const limit = Number(req.query.limit ?? 20);
+      const minRatings = Number(req.query.minRatings ?? 1);
+      console.info(`[RutaController] /populares page=${page} limit=${limit} minRatings=${minRatings}`);
+
+      const svc = new RutaService();
+      const result = await svc.findPopular({ page, limit, minRatings });
+
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+
 }
 
 module.exports = RutaController;
