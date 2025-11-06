@@ -10,7 +10,8 @@ class RutaDTO {
         tipo_deporte,
         valoraciones,
         promedio_valoracion,
-        fecha_creacion
+        fecha_creacion,
+        publico // <-- NUEVO
     }) {
         this._id = _id;
         this.id_creador = id_creador;
@@ -23,6 +24,7 @@ class RutaDTO {
         this.valoraciones = valoraciones || [];
         this.promedio_valoracion = promedio_valoracion || 0;
         this.fecha_creacion = fecha_creacion || new Date();
+        this.publico = typeof publico === 'boolean' ? publico : true;
     }
 }
 
