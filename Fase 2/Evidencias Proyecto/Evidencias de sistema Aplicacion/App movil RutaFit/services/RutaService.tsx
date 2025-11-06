@@ -109,7 +109,7 @@ export class RutaService {
       } catch {
         throw new Error("No se pudieron cargar las rutas populares");
       }
-    }
+    }   
   }
 }
 

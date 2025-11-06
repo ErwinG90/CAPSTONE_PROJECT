@@ -37,9 +37,6 @@ server.use(config.server.context + config.routes.eventos, require('./routes/even
 // ms-rutafit-neg/rutas --> rutaRoutes.js
 server.use(config.server.context + config.routes.rutas, require('./routes/rutaRoutes'));
 
-// RUTAS (populares)
-server.use('/rutas', require('./routes/rutaRoutes'));
-
 server.use(errorMiddleware);
 
 module.exports = server;
