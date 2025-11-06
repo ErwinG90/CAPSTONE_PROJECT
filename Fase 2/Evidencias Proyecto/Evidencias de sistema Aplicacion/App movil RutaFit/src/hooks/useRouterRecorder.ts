@@ -46,7 +46,7 @@ export function useRouteRecorder() {
       {
         accuracy: Location.Accuracy.BestForNavigation,
         timeInterval: 5000, // guarda un punto cada 5 segundos, lo cambié era 1000 antes , pero es por mientras para probar en la casa y no me guarde tantos puntos
-        distanceInterval: 0, // este lo cambié para probar si me guarda los puntos caminando en la casa, antes era 2 osea cada dos metros me guardaba un punto 
+        distanceInterval: 10, // este lo cambié para probar si me guarda los puntos caminando en la casa, antes era 2 osea cada dos metros me guardaba un punto 
         mayShowUserSettingsDialog: true,
       },
       (loc) => {

@@ -14,6 +14,7 @@ import MapView, { Polyline, Region } from "react-native-maps";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { auth } from "../../src/firebaseConfig";
+import { useFollowStore } from "../../src/features/follow/store";
 import { rutaService } from "../../services/RutaService";
 import { AVATAR_IMAGES, type AvatarKey } from "../../src/Constants";
 
@@ -184,6 +185,7 @@ export default function RutaDetailScreen() {
     const [showModal, setShowModal] = useState(false);
     const [myStars, setMyStars] = useState<number>(0);
     const uid = auth.currentUser?.uid;
+    const setFollowingRoute = useFollowStore((s) => s.setFollowingRoute);
 
     // cargar ruta desde params (o haz GET por id si lo prefieres)
     useEffect(() => {
@@ -355,7 +357,19 @@ export default function RutaDetailScreen() {
                 <View className="px-4 pt-4">
                     <Pressable
                         className="bg-green-600 rounded-xl py-4 items-center flex-row justify-center"
-                        onPress={() => router.back()}
+                        onPress={() => {
+                            // Enviar al mapa principal la ruta a seguir (Follow Mode)
+                            if (ruta?.recorrido?.coordinates && ruta.recorrido.coordinates.length >= 2) {
+                                setFollowingRoute({
+                                    id: String(ruta._id || ruta.id || id),
+                                    nombre: ruta.nombre ?? "Ruta",
+                                    coordinates: ruta.recorrido.coordinates,
+                                    distanciaKm: ruta.distanciaKm,
+                                });
+                            }
+                            // Navegar a la pestaña del mapa (comportamiento no destructivo)
+                            router.replace("/(tabs)");
+                        }}
                     >
                         <Ionicons name="play" size={20} color="white" style={{ marginRight: 8 }} />
                         <Text className="text-white font-semibold text-base">Iniciar esta Ruta</Text>
