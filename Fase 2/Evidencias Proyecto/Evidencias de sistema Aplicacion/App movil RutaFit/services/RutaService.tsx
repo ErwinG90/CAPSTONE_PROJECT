@@ -66,6 +66,14 @@ export class RutaService {
     const url = `${this.baseUrl}/rutas/${id}?uid=${u}`;
     return axios.delete(url); // devuelve la promesa; el caller decide qué hacer
   }
+
+  
+  async getRutasPopulares(limit = 20, minRatings = 1) {
+    const url = `${this.baseUrl}/rutas/populares?limit=${limit}&minRatings=${minRatings}`;
+    const { data } = await axios.get(url);
+    return Array.isArray(data?.data) ? data.data : data;
+  }
+
 }
 
 export const rutaService = new RutaService();
