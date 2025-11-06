@@ -22,4 +22,7 @@ router.get('/:id/valoraciones', (req, res, next) => rutaController.ratings(req, 
 // eliminar ruta
 router.delete('/:id', (req, res, next) => rutaController.destroy(req, res, next));
 
+// rutas populares (solo con valoraciones)
+router.get('/populares', (req, res, next) => rutaController.popular(req, res, next));
+
 module.exports = router;
