@@ -11,7 +11,6 @@ class MongoDBClientRuta {
         console.log(this.uri);
     }
 
-    // conectar y preparar colección
     async connect() {
         try {
             this.client = await MongoClient.connect(this.uri, {
@@ -27,14 +26,12 @@ class MongoDBClientRuta {
         }
     }
 
-    // insertar ruta
     async save(ruta) {
         console.info(`${new Date().toISOString()} [MongoDBClientRuta] [save] [START] Save [${JSON.stringify(ruta)}]`);
         try {
             if (!this.collection) await this.connect();
             const result = await this.collection.insertOne(ruta);
             console.info(`${new Date().toISOString()} [MongoDBClientRuta] [save] [END] Save successful`);
-            // Devolver la ruta con el _id generado
             return {
                 ...ruta,
                 _id: result.insertedId
@@ -45,7 +42,6 @@ class MongoDBClientRuta {
         }
     }
 
-    // listar todas las rutas
     async findAll() {
         try {
             if (!this.collection) await this.connect();
@@ -55,7 +51,7 @@ class MongoDBClientRuta {
             throw error;
         }
     }
-    // Listar rutas del creador 
+
     async findByCreator({ uid, page = 1, limit = 20, q } = {}) {
         try {
             if (!uid) throw new Error('uid es requerido');
@@ -97,7 +93,6 @@ class MongoDBClientRuta {
         }
     }
 
-    // Agregar/actualizar valoración y recalcular promedio
     async addValoracion({ rutaId, id_usuario, puntuacion, comentario }) {
         try {
             if (!this.collection) await this.connect();
@@ -105,19 +100,15 @@ class MongoDBClientRuta {
             const _id = new ObjectId(rutaId);
             const now = new Date();
 
-            // Objeto de valoración a insertar/sobrescribir
             const nuevaVal = {
-                id_usuario,                    // string (o ObjectId si más adelante quieres)
-                puntuacion: Number(puntuacion),// 1..5
+                id_usuario,
+                puntuacion: Number(puntuacion),
                 fecha: now
             };
             if (comentario && String(comentario).trim()) {
                 nuevaVal.comentario = String(comentario).trim();
             }
 
-            // Update con pipeline (MongoDB 4.2+): 
-            // 1) Reemplaza la valoración del mismo usuario (si existe) por la nueva.
-            // 2) Recalcula promedio_valoracion sobre todo el array.
             const result = await this.collection.updateOne(
                 { _id },
                 [
@@ -131,7 +122,6 @@ class MongoDBClientRuta {
                                     in: {
                                         $concatArrays: [
                                             {
-                                                // Filtra cualquier valoración previa del mismo usuario
                                                 $filter: {
                                                     input: "$$base",
                                                     as: "v",
@@ -173,7 +163,6 @@ class MongoDBClientRuta {
                 throw e;
             }
 
-            // Devuelve la ruta actualizada
             const updated = await this.collection.findOne({ _id });
             return updated;
         } catch (error) {
@@ -196,12 +185,9 @@ class MongoDBClientRuta {
                 { $project: { valoraciones: { $ifNull: ["$valoraciones", []] } } },
                 { $unwind: { path: "$valoraciones", preserveNullAndEmptyArrays: false } },
                 { $replaceRoot: { newRoot: "$valoraciones" } },
-
-                // Buscamos en ambas colecciones posibles: 'users' (backend actual) y 'usuarios' (tu esquema)
                 { $lookup: { from: "users", localField: "id_usuario", foreignField: "_id", as: "u1" } },
                 { $lookup: { from: "usuarios", localField: "id_usuario", foreignField: "_id", as: "u2" } },
                 { $addFields: { user: { $ifNull: [{ $arrayElemAt: ["$u1", 0] }, { $arrayElemAt: ["$u2", 0] }] } } },
-
                 {
                     $project: {
                         _id: 0,
@@ -216,12 +202,7 @@ class MongoDBClientRuta {
                     }
                 },
                 { $sort: { fecha: -1 } },
-                {
-                    $facet: {
-                        items: [{ $skip: skip }, { $limit: l }],
-                        total: [{ $count: "count" }]
-                    }
-                }
+                { $facet: { items: [{ $skip: skip }, { $limit: l }], total: [{ $count: "count" }] } }
             ];
 
             const [res] = await this.collection.aggregate(pipeline).toArray();
@@ -235,7 +216,29 @@ class MongoDBClientRuta {
         }
     }
 
+    // NUEVO: actualizar el flag 'publico' mediante PUT
+    async updatePublico({ rutaId, publico }) {
+        try {
+            if (!this.collection) await this.connect();
+            const _id = new ObjectId(rutaId);
 
+            const result = await this.collection.updateOne(
+                { _id },
+                { $set: { publico: Boolean(publico) } }
+            );
+
+            if (result.matchedCount === 0) {
+                const e = new Error("Ruta no encontrada");
+                e.status = 404;
+                throw e;
+            }
+
+            return await this.collection.findOne({ _id });
+        } catch (error) {
+            console.error(`${new Date().toISOString()} [MongoDBClientRuta] [updatePublico] Error:`, error);
+            throw error;
+        }
+    }
 }
 
 module.exports = MongoDBClientRuta;

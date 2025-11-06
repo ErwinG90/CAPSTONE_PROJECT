@@ -3,7 +3,6 @@ const RutaMapper = require('../mappers/RutaMapper');
 const UserRepository = require('../repositories/UserRepository');
 
 class RutaService {
-    // crear ruta
     async save(rutaDTO) {
         console.info(`${new Date().toISOString()} [RutaService] [save] [START] Save [${JSON.stringify(rutaDTO)}]`);
 
@@ -11,38 +10,30 @@ class RutaService {
         const rutaMapper = new RutaMapper();
 
         const rutaDomain = rutaMapper.toDomain(rutaDTO);
-        const rutaGuardada = await rutaRepository.save(rutaDomain); // <-- Recibe la ruta con _id
+        const rutaGuardada = await rutaRepository.save(rutaDomain);
 
-        // BLOQUE NUEVO
         try {
             const userRepository = new UserRepository();
-            const uid = rutaGuardada.id_creador; // UID de Firebase del creador
-            const rutaId = rutaGuardada._id; // ObjectId de la ruta recién guardada
+            const uid = rutaGuardada.id_creador;
+            const rutaId = rutaGuardada._id;
 
-            // Buscar el usuario
             const user = await userRepository.findByUid(uid);
 
             if (user) {
-                // Agregar el ObjectId de la ruta al array de rutas del usuario
                 const rutasActualizadas = [...(user.rutas || []), rutaId];
-
-                // Actualizar el usuario
                 await userRepository.update(uid, { rutas: rutasActualizadas });
-
                 console.info(`${new Date().toISOString()} [RutaService] [save] Ruta agregada al usuario ${uid}`);
             } else {
                 console.warn(`${new Date().toISOString()} [RutaService] [save] Usuario ${uid} no encontrado`);
             }
         } catch (error) {
             console.error(`${new Date().toISOString()} [RutaService] [save] Error al actualizar usuario:`, error);
-            // No lanzamos error para que la ruta se guarde de todos modos
         }
 
         console.info(`${new Date().toISOString()} [RutaService] [save] [END] Save`);
         return rutaGuardada;
     }
 
-    // listar todas las rutas
     async findAll() {
         console.info(`${new Date().toISOString()} [RutaService] [findAll] [START] Find All`);
 
@@ -56,8 +47,6 @@ class RutaService {
         return rutasDomain;
     }
 
-
-    // listar rutas del usuario (creadas por el)
     async findMine({ uid, page = 1, limit = 20, q } = {}) {
         console.info(`${new Date().toISOString()} [RutaService] [findMine] [START] uid=${uid} page=${page} limit=${limit} q=${q ?? ''}`);
 
@@ -132,6 +121,18 @@ class RutaService {
         return { ...result, totalPages };
     }
 
+    // cambiar visibilidad (PUT)
+    async cambiarVisibilidad({ rutaId, publico }) {
+        console.info(`${new Date().toISOString()} [RutaService] [cambiarVisibilidad] rutaId=${rutaId} publico=${publico}`);
+        if (!rutaId) throw new Error("rutaId es requerido");
+        if (typeof publico !== 'boolean') throw new Error("publico debe ser boolean");
+
+        const repo = new RutaRepository();
+        const mapper = new RutaMapper();
+
+        const updated = await repo.updatePublico({ rutaId, publico });
+        return mapper.toDomain(updated);
+    }
 }
 
 module.exports = RutaService;

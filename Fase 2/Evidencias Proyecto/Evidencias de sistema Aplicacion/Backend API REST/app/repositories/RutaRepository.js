@@ -1,9 +1,6 @@
 const MongoDBClientRuta = require('../clients/MongoDBClientRuta');
 
 class RutaRepository {
-    /**
-     * Guarda una ruta
-     */
     async save(ruta) {
         console.info(`${new Date().toISOString()} [RutaRepository] [save] [START] Save [${JSON.stringify(ruta)}]`);
         const mongoDBClientRuta = new MongoDBClientRuta();
@@ -12,9 +9,6 @@ class RutaRepository {
         return rutaGuardada;
     }
 
-    /**
-     * Lista todas las rutas 
-     */
     async findAll() {
         console.info(`${new Date().toISOString()} [RutaRepository] [findAll] [START] Find All`);
         const mongoDBClientRuta = new MongoDBClientRuta();
@@ -23,9 +17,6 @@ class RutaRepository {
         return rutas;
     }
 
-    /**
-     * Lista todas las rutas del usuario
-     */
     async findByCreator({ uid, page = 1, limit = 20, q } = {}) {
         console.info(`${new Date().toISOString()} [RutaRepository] [findByCreator] [START] uid=${uid} page=${page} limit=${limit} q=${q ?? ''}`);
         if (!uid) {
@@ -55,6 +46,12 @@ class RutaRepository {
         return await mongoDBClientRuta.listValoraciones({ rutaId, page, limit });
     }
 
+    // NUEVO: actualizar el flag 'publico'
+    async updatePublico({ rutaId, publico }) {
+        console.info(`${new Date().toISOString()} [RutaRepository] [updatePublico] rutaId=${rutaId} publico=${publico}`);
+        const mongoDBClientRuta = new MongoDBClientRuta();
+        return await mongoDBClientRuta.updatePublico({ rutaId, publico });
+    }
 }
 
 module.exports = RutaRepository;

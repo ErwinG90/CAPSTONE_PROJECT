@@ -19,4 +19,7 @@ router.post('/:id/valoraciones', (req, res, next) => rutaController.rate(req, re
 // listar valoraciones
 router.get('/:id/valoraciones', (req, res, next) => rutaController.ratings(req, res, next));
 
+// cambiar público/privado (PUT)
+router.put('/:id/publico', (req, res, next) => rutaController.setPublico(req, res, next));
+
 module.exports = router;

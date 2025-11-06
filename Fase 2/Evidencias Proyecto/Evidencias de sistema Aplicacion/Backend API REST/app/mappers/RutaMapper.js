@@ -3,7 +3,6 @@ const RutaDTO = require('../dtos/RutaDTO');
 
 class RutaMapper {
     toDomain(dto) {
-        // Si no viene retornar nulo por defecto
         if (!dto) return null;
 
         return new Ruta(
@@ -17,12 +16,12 @@ class RutaMapper {
             dto.fecha_creacion || new Date(),
             dto.promedio_valoracion,
             dto.valoraciones,
-            dto.tipo_deporte
+            dto.tipo_deporte,
+            dto.publico
         );
     }
 
     toDTO(domain) {
-        // Si no viene retornar nulo por defecto
         if (!domain) return null;
 
         return new RutaDTO({
@@ -36,10 +35,10 @@ class RutaMapper {
             fecha_creacion: domain.fecha_creacion,
             promedio_valoracion: domain.promedio_valoracion,
             valoraciones: domain.valoraciones,
-            tipo_deporte: domain.tipo_deporte
+            tipo_deporte: domain.tipo_deporte,
+            publico: domain.publico
         });
     }
 }
 
 module.exports = RutaMapper;
-
