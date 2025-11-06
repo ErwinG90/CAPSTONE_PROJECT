@@ -8,6 +8,7 @@ import type { Deporte } from "../../../interface/Deporte";
 import type { Nivel } from "../../../interface/Nivel";
 import { deporteService } from "../../../services/DeporteService";
 import { nivelService } from "../../../services/NivelService";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Props = {
     visible: boolean;
@@ -44,6 +45,7 @@ function fromYmd(s?: string | null): Date | null {
 }
 
 export default function EditProfileModal({ visible, initial, onCancel, onSave }: Props) {
+    const insets = useSafeAreaInsets();
     const [nombre, setNombre] = useState(initial.nombre ?? "");
     const [apellido, setApellido] = useState(initial.apellido ?? "");
     const [genero, setGenero] = useState<"hombre" | "mujer">(initial.genero === "hombre" ? "hombre" : "mujer");
@@ -107,7 +109,9 @@ export default function EditProfileModal({ visible, initial, onCancel, onSave }:
     return (
         <Modal visible={visible} animationType="slide" transparent>
             <View className="flex-1 bg-black/40 items-center justify-end">
-                <View className="w-full bg-white rounded-t-3xl p-4">
+                <View
+                    className="w-full bg-white rounded-t-3xl p-4"
+                    style={{ paddingBottom: insets.bottom + 12 }}>
                     <Text className="text-lg font-semibold text-center mb-3">Editar perfil</Text>
 
                     {/* Nombre */}

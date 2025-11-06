@@ -30,12 +30,16 @@ class MongoDBClientRuta {
         console.info(`${new Date().toISOString()} [MongoDBClientRuta] [save] [START] Save [${JSON.stringify(ruta)}]`);
         try {
             if (!this.collection) await this.connect();
-            const result = await this.collection.insertOne(ruta);
-            console.info(`${new Date().toISOString()} [MongoDBClientRuta] [save] [END] Save successful`);
-            return {
+
+            // asegura default a nivel de persistencia
+            const doc = {
                 ...ruta,
-                _id: result.insertedId
+                publico: typeof ruta.publico === 'boolean' ? ruta.publico : true
             };
+
+            const result = await this.collection.insertOne(doc);
+            console.info(`${new Date().toISOString()} [MongoDBClientRuta] [save] [END] Save successful`);
+            return { ...doc, _id: result.insertedId };
         } catch (error) {
             console.error(`${new Date().toISOString()} [MongoDBClientRuta] [save] Error:`, error);
             throw error;
