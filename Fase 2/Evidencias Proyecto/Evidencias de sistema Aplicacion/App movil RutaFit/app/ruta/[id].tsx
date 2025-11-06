@@ -17,6 +17,7 @@ import { auth } from "../../src/firebaseConfig";
 import { useFollowStore } from "../../src/features/follow/store";
 import { rutaService } from "../../services/RutaService";
 import { AVATAR_IMAGES, type AvatarKey } from "../../src/Constants";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // ===== Tipos UI mínimos (ajústalos si ya los tienes tipados) =====
 type Ruta = {
@@ -291,203 +292,207 @@ export default function RutaDetailScreen() {
     };
 
     return (
-        <View className="flex-1 bg-white">
-            {/* Header */}
-            <View className="flex-row items-center px-4 pt-12 pb-3 bg-white border-b border-gray-100">
-                <Pressable onPress={() => router.back()} className="mr-3 p-2" hitSlop={10}>
-                    <Ionicons name="arrow-back" size={24} color="#111" />
-                </Pressable>
-                <Text className="text-lg font-semibold flex-1" numberOfLines={1}>
-                    {nombre}
-                </Text>
-            </View>
+        <SafeAreaView style={{ flex: 1 }}>
+            <View className="flex-1 bg-white">
+                {/* Header */}
+                <View className="flex-row items-center px-4 pt-12 pb-3 bg-white border-b border-gray-100">
+                    <Pressable onPress={() => router.back()} className="mr-3 p-2" hitSlop={10}>
+                        <Ionicons name="arrow-back" size={24} color="#111" />
+                    </Pressable>
+                    <Text className="text-lg font-semibold flex-1" numberOfLines={1}>
+                        {nombre}
+                    </Text>
+                </View>
 
-            <ScrollView className="flex-1">
-                {/* Mapa */}
-                <View className="h-64 w-full bg-gray-100 relative">
-                    {region && polyline.length >= 2 ? (
-                        <>
-                            <MapView
-                                ref={(ref) => {
-                                    if (ref && !ref.getCamera) return;
-                                    (mapRef as any).current = ref;
-                                }}
-                                style={{ height: "100%", width: "100%" }}
-                                initialRegion={initialRegion || region}
-                                scrollEnabled
-                                zoomEnabled
-                                rotateEnabled={false}
-                                pitchEnabled={false}
-                                mapType="standard"
-                                onRegionChangeComplete={(newRegion) => {
-                                    if (initialRegion) {
-                                        const zoomChanged =
-                                            Math.abs(newRegion.latitudeDelta - initialRegion.latitudeDelta) > 0.001 ||
-                                            Math.abs(newRegion.longitudeDelta - initialRegion.longitudeDelta) > 0.001;
-                                        setHasZoomed(zoomChanged);
-                                    }
-                                }}
-                            >
-                                <Polyline coordinates={polyline} strokeColor="#2563eb" strokeWidth={4} />
-                            </MapView>
-
-                            {hasZoomed && (
-                                <Pressable
-                                    className="absolute bottom-3 right-3 bg-black/60 p-2.5 rounded-full"
-                                    onPress={() => {
-                                        if ((mapRef as any).current && initialRegion) {
-                                            (mapRef as any).current.animateToRegion(initialRegion, 300);
-                                            setHasZoomed(false);
+                <ScrollView className="flex-1">
+                    {/* Mapa */}
+                    <View className="h-64 w-full bg-gray-100 relative">
+                        {region && polyline.length >= 2 ? (
+                            <>
+                                <MapView
+                                    ref={(ref) => {
+                                        if (ref && !ref.getCamera) return;
+                                        (mapRef as any).current = ref;
+                                    }}
+                                    style={{ height: "100%", width: "100%" }}
+                                    initialRegion={initialRegion || region}
+                                    scrollEnabled
+                                    zoomEnabled
+                                    rotateEnabled={false}
+                                    pitchEnabled={false}
+                                    mapType="standard"
+                                    onRegionChangeComplete={(newRegion) => {
+                                        if (initialRegion) {
+                                            const zoomChanged =
+                                                Math.abs(newRegion.latitudeDelta - initialRegion.latitudeDelta) > 0.001 ||
+                                                Math.abs(newRegion.longitudeDelta - initialRegion.longitudeDelta) > 0.001;
+                                            setHasZoomed(zoomChanged);
                                         }
                                     }}
                                 >
-                                    <Ionicons name="expand-outline" size={18} color="white" />
-                                </Pressable>
-                            )}
-                        </>
-                    ) : (
-                        <View className="flex-1 items-center justify-center">
-                            <Ionicons name="map-outline" size={48} color="#9ca3af" />
-                            <Text className="text-gray-500 mt-2">Vista previa de la ruta</Text>
-                        </View>
-                    )}
-                </View>
+                                    <Polyline coordinates={polyline} strokeColor="#2563eb" strokeWidth={4} />
+                                </MapView>
 
-                {/* Botón Iniciar esta Ruta */}
-                <View className="px-4 pt-4">
-                    <Pressable
-                        className="bg-green-600 rounded-xl py-4 items-center flex-row justify-center"
-                        onPress={() => {
-                            // Enviar al mapa principal la ruta a seguir (Follow Mode)
-                            if (ruta?.recorrido?.coordinates && ruta.recorrido.coordinates.length >= 2) {
-                                setFollowingRoute({
-                                    id: String(ruta._id || ruta.id || id),
-                                    nombre: ruta.nombre ?? "Ruta",
-                                    coordinates: ruta.recorrido.coordinates,
-                                    distanciaKm: ruta.distanciaKm,
-                                });
-                            }
-                            // Navegar a la pestaña del mapa (comportamiento no destructivo)
-                            router.replace("/(tabs)");
-                        }}
-                    >
-                        <Ionicons name="play" size={20} color="white" style={{ marginRight: 8 }} />
-                        <Text className="text-white font-semibold text-base">Iniciar esta Ruta</Text>
-                    </Pressable>
-                </View>
-
-                {/* Info + rating promedio local */}
-                <View className="px-4 pt-4">
-                    <View className="flex-row items-center justify-between mb-3">
-                        <View className="flex-row gap-2">
-                            {ruta.deporte ? (
-                                <View className="px-3 py-1 rounded-full bg-gray-100">
-                                    <Text className="text-sm text-gray-700">{ruta.deporte}</Text>
-                                </View>
-                            ) : null}
-                            {ruta.nivel ? (
-                                <View className="px-3 py-1 rounded-full bg-black">
-                                    <Text className="text-sm text-white font-medium">{ruta.nivel}</Text>
-                                </View>
-                            ) : null}
-                        </View>
-                        {localAvg != null && (
-                            <View className="flex-row items-center">
-                                <Ionicons name="star" size={18} color="#facc15" />
-                                <Text className="ml-1 text-base font-semibold">
-                                    {Number(localAvg).toFixed(1)}
-                                </Text>
-                                {localCount != null && (
-                                    <Text className="ml-1 text-sm text-gray-500">({localCount})</Text>
+                                {hasZoomed && (
+                                    <Pressable
+                                        className="absolute bottom-3 right-3 bg-black/60 p-2.5 rounded-full"
+                                        onPress={() => {
+                                            if ((mapRef as any).current && initialRegion) {
+                                                (mapRef as any).current.animateToRegion(initialRegion, 300);
+                                                setHasZoomed(false);
+                                            }
+                                        }}
+                                    >
+                                        <Ionicons name="expand-outline" size={18} color="white" />
+                                    </Pressable>
                                 )}
+                            </>
+                        ) : (
+                            <View className="flex-1 items-center justify-center">
+                                <Ionicons name="map-outline" size={48} color="#9ca3af" />
+                                <Text className="text-gray-500 mt-2">Vista previa de la ruta</Text>
                             </View>
                         )}
                     </View>
 
-                    <Text className="text-2xl font-bold mb-1">{nombre}</Text>
-                    {ruta.descripcion ? (
-                        <Text className="text-sm text-gray-600 leading-5 mb-4">{ruta.descripcion}</Text>
-                    ) : null}
-
-                    {/* Métrica distancia */}
-                    <View className="bg-gray-50 rounded-xl p-4 mb-4">
-                        <View className="flex-row justify-center">
-                            <View className="items-center">
-                                <Ionicons name="trail-sign-outline" size={24} color="#6b7280" />
-                                <Text className="text-xs text-gray-500 mt-1">Distancia</Text>
-                                <Text className="text-lg font-semibold mt-1">
-                                    {formatDistance(ruta.distanciaKm)}
-                                </Text>
-                            </View>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Sección Calificaciones */}
-                <View className="px-4 py-4 border-t border-gray-200">
-                    <View className="flex-row items-center justify-between mb-4">
-                        <View className="flex-row items-center">
-                            <Ionicons name="chatbubble-outline" size={20} color="#111" />
-                            <Text className="text-lg font-semibold ml-2">
-                                Calificaciones ({cals?.length ?? 0})
-                            </Text>
-                        </View>
-                        <Pressable onPress={() => setShowModal(true)}>
-                            <View className="flex-row items-center">
-                                <Ionicons name="star-outline" size={18} color="#111" />
-                                <Text className="ml-1 text-sm font-medium">Calificar</Text>
-                            </View>
+                    {/* Botón Iniciar esta Ruta */}
+                    <View className="px-4 pt-4">
+                        <Pressable
+                            className="bg-green-600 rounded-xl py-4 items-center flex-row justify-center"
+                            onPress={() => {
+                                // Enviar al mapa principal la ruta a seguir (Follow Mode)
+                                if (ruta?.recorrido?.coordinates && ruta.recorrido.coordinates.length >= 2) {
+                                    setFollowingRoute({
+                                        id: String(ruta._id || ruta.id || id),
+                                        nombre: ruta.nombre ?? "Ruta",
+                                        coordinates: ruta.recorrido.coordinates,
+                                        distanciaKm: ruta.distanciaKm,
+                                    });
+                                }
+                                // Navegar a la pestaña del mapa (comportamiento no destructivo)
+                                router.replace("/(tabs)");
+                            }}
+                        >
+                            <Ionicons name="play" size={20} color="white" style={{ marginRight: 8 }} />
+                            <Text className="text-white font-semibold text-base">Iniciar esta Ruta</Text>
                         </Pressable>
                     </View>
 
-                    {loadingCals ? (
-                        <View className="items-center py-6">
-                            <ActivityIndicator />
-                        </View>
-                    ) : cals.length === 0 ? (
-                        <Text className="text-gray-500">Aún no hay calificaciones.</Text>
-                    ) : (
-                        cals.map((it, idx) => <CalificacionRow key={`${it.id_usuario}-${idx}`} item={it} />)
-                    )}
-                </View>
-            </ScrollView>
-
-            {/* Modal Calificar */}
-            <Modal visible={showModal} transparent animationType="slide">
-                <View className="flex-1 bg-black/40 items-center justify-end">
-                    <View className="bg-white w-full rounded-t-2xl p-5">
-                        <View className="items-center mb-3">
-                            <Text className="text-lg font-semibold">Calificar Ruta</Text>
-                            <Text className="text-gray-500 mt-1">Selecciona tu puntuación</Text>
-                        </View>
-
-                        <View className="flex-row items-center justify-center my-3">
-                            {[1, 2, 3, 4, 5].map((s) => (
-                                <Pressable key={s} onPress={() => setMyStars(s)} className="mx-1">
-                                    <Ionicons
-                                        name={s <= myStars ? "star" : "star-outline"}
-                                        size={32}
-                                        color={s <= myStars ? "#facc15" : "#9ca3af"}
-                                    />
-                                </Pressable>
-                            ))}
+                    {/* Info + rating promedio local */}
+                    <View className="px-4 pt-4">
+                        <View className="flex-row items-center justify-between mb-3">
+                            <View className="flex-row gap-2">
+                                {ruta.deporte ? (
+                                    <View className="px-3 py-1 rounded-full bg-gray-100">
+                                        <Text className="text-sm text-gray-700">{ruta.deporte}</Text>
+                                    </View>
+                                ) : null}
+                                {ruta.nivel ? (
+                                    <View className="px-3 py-1 rounded-full bg-black">
+                                        <Text className="text-sm text-white font-medium">{ruta.nivel}</Text>
+                                    </View>
+                                ) : null}
+                            </View>
+                            {localAvg != null && (
+                                <View className="flex-row items-center">
+                                    <Ionicons name="star" size={18} color="#facc15" />
+                                    <Text className="ml-1 text-base font-semibold">
+                                        {Number(localAvg).toFixed(1)}
+                                    </Text>
+                                    {localCount != null && (
+                                        <Text className="ml-1 text-sm text-gray-500">({localCount})</Text>
+                                    )}
+                                </View>
+                            )}
                         </View>
 
-                        <View className="flex-row justify-end mt-2">
-                            <Pressable onPress={() => setShowModal(false)} className="px-4 py-3 mr-2">
-                                <Text className="text-gray-600 font-medium">Cancelar</Text>
-                            </Pressable>
-                            <Pressable
-                                onPress={handleSubmitRating}
-                                className={`px-4 py-3 rounded-xl ${myStars ? "bg-black" : "bg-gray-300"}`}
-                                disabled={!myStars}
-                            >
-                                <Text className="text-white font-semibold">Guardar</Text>
-                            </Pressable>
+                        <Text className="text-2xl font-bold mb-1">{nombre}</Text>
+                        {ruta.descripcion ? (
+                            <Text className="text-sm text-gray-600 leading-5 mb-4">{ruta.descripcion}</Text>
+                        ) : null}
+
+                        {/* Métrica distancia */}
+                        <View className="bg-gray-50 rounded-xl p-4 mb-4">
+                            <View className="flex-row justify-center">
+                                <View className="items-center">
+                                    <Ionicons name="trail-sign-outline" size={24} color="#6b7280" />
+                                    <Text className="text-xs text-gray-500 mt-1">Distancia</Text>
+                                    <Text className="text-lg font-semibold mt-1">
+                                        {formatDistance(ruta.distanciaKm)}
+                                    </Text>
+                                </View>
+                            </View>
                         </View>
                     </View>
-                </View>
-            </Modal>
-        </View>
+
+                    {/* Sección Calificaciones */}
+                    <View className="px-4 py-4 border-t border-gray-200">
+                        <View className="flex-row items-center justify-between mb-4">
+                            <View className="flex-row items-center">
+                                <Ionicons name="chatbubble-outline" size={20} color="#111" />
+                                <Text className="text-lg font-semibold ml-2">
+                                    Calificaciones ({cals?.length ?? 0})
+                                </Text>
+                            </View>
+                            <Pressable onPress={() => setShowModal(true)}>
+                                <View className="flex-row items-center">
+                                    <Ionicons name="star-outline" size={18} color="#111" />
+                                    <Text className="ml-1 text-sm font-medium">Calificar</Text>
+                                </View>
+                            </Pressable>
+                        </View>
+
+                        {loadingCals ? (
+                            <View className="items-center py-6">
+                                <ActivityIndicator />
+                            </View>
+                        ) : cals.length === 0 ? (
+                            <Text className="text-gray-500">Aún no hay calificaciones.</Text>
+                        ) : (
+                            cals.map((it, idx) => <CalificacionRow key={`${it.id_usuario}-${idx}`} item={it} />)
+                        )}
+                    </View>
+                </ScrollView>
+
+                {/* Modal Calificar */}
+                <Modal visible={showModal} transparent animationType="slide">
+                    <View className="flex-1 bg-black/40 items-center justify-end">
+                        <View
+                            className="bg-white w-full rounded-t-2xl p-5"
+                        >
+                            <View className="items-center mb-3">
+                                <Text className="text-lg font-semibold">Calificar Ruta</Text>
+                                <Text className="text-gray-500 mt-1">Selecciona tu puntuación</Text>
+                            </View>
+
+                            <View className="flex-row items-center justify-center my-3">
+                                {[1, 2, 3, 4, 5].map((s) => (
+                                    <Pressable key={s} onPress={() => setMyStars(s)} className="mx-1">
+                                        <Ionicons
+                                            name={s <= myStars ? "star" : "star-outline"}
+                                            size={32}
+                                            color={s <= myStars ? "#facc15" : "#9ca3af"}
+                                        />
+                                    </Pressable>
+                                ))}
+                            </View>
+
+                            <View className="flex-row justify-end mt-2">
+                                <Pressable onPress={() => setShowModal(false)} className="px-4 py-3 mr-2">
+                                    <Text className="text-gray-600 font-medium">Cancelar</Text>
+                                </Pressable>
+                                <Pressable
+                                    onPress={handleSubmitRating}
+                                    className={`px-4 py-3 rounded-xl ${myStars ? "bg-black" : "bg-gray-300"}`}
+                                    disabled={!myStars}
+                                >
+                                    <Text className="text-white font-semibold">Guardar</Text>
+                                </Pressable>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+            </View>
+        </SafeAreaView>
     );
 }
