@@ -135,6 +135,8 @@ export default function HomeScreen() {
     React.useCallback(() => {
       // onFocus: no hacemos nada
       return () => {
+        // Limpiar navegación también al salir del tab
+        stopNavigation();
         clearFollowingRoute();
         setDest(null);
         setRoutePath(null);
@@ -197,6 +199,10 @@ export default function HomeScreen() {
   const [tracking, setTracking] = useState(false);
   const followWatcher = useRef<Location.LocationSubscription | null>(null);
   const [snappedToRoute, setSnappedToRoute] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  /* ----------------------- NAVIGATION TO START (GPS automático) ----------------------- */
+  const navigationWatcher = useRef<Location.LocationSubscription | null>(null);
+  const [navigatingToStart, setNavigatingToStart] = useState(false);
   const [progressMeters, setProgressMeters] = useState(0);
   const [totalMeters, setTotalMeters] = useState(0);
   const lastAccuracyRef = useRef<number | null>(null);
@@ -342,6 +348,51 @@ export default function HomeScreen() {
     demoTimerRef.current = null;
     isDemoRef.current = false;
   }
+
+  /* ----------------------- NAVIGATION FUNCTIONS ----------------------- */
+  async function startNavigation() {
+    if (!followStart || navigatingToStart) return;
+    setNavigatingToStart(true);
+
+    navigationWatcher.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: 4000,  // cada 4 segundos para conservar batería
+        distanceInterval: 10, // solo cuando te muevas 10m
+      },
+      (loc) => {
+        // Solo actualizar location para que distToStartMeters se recalcule
+        setLocation(loc);
+      }
+    );
+  }
+
+  function stopNavigation() {
+    navigationWatcher.current?.remove();
+    navigationWatcher.current = null;
+    setNavigatingToStart(false);
+  }
+
+  /* ----------------------- NAVIGATION AUTO START/STOP ----------------------- */
+  useEffect(() => {
+    if (!followStart || distToStartMeters == null) {
+      // No hay ruta seleccionada o no hay ubicación
+      if (navigatingToStart) stopNavigation();
+      return;
+    }
+
+    const isTrackingActive = tracking || isDemoRef.current;
+    const isFarFromStart = distToStartMeters > FOLLOW_THRESHOLDS.farFromStartMeters; // >100m
+    const isNearStart = distToStartMeters <= FOLLOW_THRESHOLDS.nearStartMeters; // <=50m
+
+    if (!isTrackingActive && isFarFromStart && !navigatingToStart) {
+      // Estás lejos del inicio y no estás trackeando → iniciar navegación automática
+      startNavigation();
+    } else if (isTrackingActive || isNearStart || !isFarFromStart) {
+      // Ya estás trackeando, cerca del inicio, o no estás tan lejos → parar navegación
+      if (navigatingToStart) stopNavigation();
+    }
+  }, [distToStartMeters, tracking, followStart, navigatingToStart]);
 
   // Detección básica de finalización de ruta
   // Control de finalización con precisión dinámica y confirmaciones

@@ -65,6 +65,17 @@ export default function GuardarRutaForm({
     // Función para guardar
     const handleGuardar = async () => {
         setGuardandoRuta(true);
+
+        // NUEVO: Validar movimiento mínimo antes que todo
+        if (distancia < 0.015) { // 15 metros = 0.015 km
+            Alert.alert(
+                "Ruta no válida",
+                "No se detectó movimiento suficiente. Para guardar una ruta debes caminar al menos 15 metros."
+            );
+            setGuardandoRuta(false);
+            return;
+        }
+
         // Validar campos obligatorios
         const newErrors: { nombre?: string; tipoDeporte?: string; dificultad?: string } = {};
         if (!nombre.trim()) {
@@ -78,6 +89,7 @@ export default function GuardarRutaForm({
         }
         setErrors(newErrors);
         if (Object.values(newErrors).some(Boolean)) {
+            setGuardandoRuta(false);
             return;
         }
         console.log('Coordenadas:', JSON.stringify(puntosGPS));
