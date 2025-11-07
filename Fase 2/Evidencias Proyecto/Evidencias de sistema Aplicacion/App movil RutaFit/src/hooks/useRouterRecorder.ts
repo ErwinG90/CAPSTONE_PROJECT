@@ -45,8 +45,8 @@ export function useRouteRecorder() {
     watcher.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 5000, // guarda un punto cada 5 segundos, lo cambié era 1000 antes , pero es por mientras para probar en la casa y no me guarde tantos puntos
-        distanceInterval: 10, // este lo cambié para probar si me guarda los puntos caminando en la casa, antes era 2 osea cada dos metros me guardaba un punto 
+        timeInterval: 5000,
+        distanceInterval: 15, // Cambio: de 10 → 15 para mejor espaciado
         mayShowUserSettingsDialog: true,
       },
       (loc) => {
@@ -56,8 +56,29 @@ export function useRouteRecorder() {
           accuracy: loc.coords.accuracy,
           timestamp: Date.now(),
         };
+        
+        // NUEVO: Siempre actualizar lastPoint (para UI en vivo)
         setLastPoint(next);
-        setPoints((prev) => [...prev, next]);
+        
+        // NUEVO: Filtro de movimiento real
+        if (points.length === 0) {
+          // Primer punto: siempre guardar
+          setPoints([next]);
+          return;
+        }
+        
+        // Calcular distancia desde el último punto GUARDADO
+        const lastSaved = points[points.length - 1];
+        const distance = haversineMeters(
+          { latitude: lastSaved.latitude, longitude: lastSaved.longitude },
+          { latitude: next.latitude, longitude: next.longitude }
+        );
+        
+        // Solo guardar si te moviste al menos 15 metros reales
+        if (distance >= 15) {
+          setPoints((prev) => [...prev, next]);
+        }
+        // Si no te moviste 15m → ignorar este punto
       }
     );
   };
