@@ -157,6 +157,35 @@ class RutaController {
       next(error);
     }
   }
+  //reutilizar findall con filtros
+  async findAll(req, res, next) {
+  try {
+    const {
+      page,
+      limit,
+      tipo_deporte,
+      nivel_dificultad,
+      minDist,
+      maxDist,
+    } = req.query;
+
+    const RutaService = require('../services/RutaService');
+    const svc = new RutaService();
+
+    const result = await svc.findAllWithFilters({
+      page,
+      limit,
+      tipo_deporte,
+      nivel_dificultad,
+      minDist,
+      maxDist,
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
 }
 
 module.exports = RutaController;
