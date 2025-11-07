@@ -1,9 +1,6 @@
 const MongoDBClientRuta = require('../clients/MongoDBClientRuta');
 
 class RutaRepository {
-    /**
-     * Guarda una ruta
-     */
     async save(ruta) {
         console.info(`${new Date().toISOString()} [RutaRepository] [save] [START] Save [${JSON.stringify(ruta)}]`);
         const mongoDBClientRuta = new MongoDBClientRuta();
@@ -12,9 +9,6 @@ class RutaRepository {
         return rutaGuardada;
     }
 
-    /**
-     * Lista todas las rutas 
-     */
     async findAll() {
         console.info(`${new Date().toISOString()} [RutaRepository] [findAll] [START] Find All`);
         const mongoDBClientRuta = new MongoDBClientRuta();
@@ -23,9 +17,6 @@ class RutaRepository {
         return rutas;
     }
 
-    /**
-     * Lista todas las rutas del usuario
-     */
     async findByCreator({ uid, page = 1, limit = 20, q } = {}) {
         console.info(`${new Date().toISOString()} [RutaRepository] [findByCreator] [START] uid=${uid} page=${page} limit=${limit} q=${q ?? ''}`);
         if (!uid) {
@@ -55,17 +46,22 @@ class RutaRepository {
         return await mongoDBClientRuta.listValoraciones({ rutaId, page, limit });
     }
 
-     async deleteById({ rutaId, uid }) {
+    async deleteById({ rutaId, uid }) {
         console.info(`${new Date().toISOString()} [RutaRepository] [deleteById] rutaId=${rutaId} uid=${uid}`);
         const mongo = new MongoDBClientRuta();
         return await mongo.deleteById({ rutaId, uid });
-  }
+    }
 
     async findPopular({ page = 1, limit = 20, minRatings = 1, top } = {}) {
-  const mongo = new MongoDBClientRuta();
-  return await mongo.findPopular({ page, limit, minRatings, top });
-}
+        const mongo = new MongoDBClientRuta();
+        return await mongo.findPopular({ page, limit, minRatings, top });
+    }
 
+    async updatePublico({ rutaId, publico }) {
+        console.info(`${new Date().toISOString()} [RutaRepository] [updatePublico] rutaId=${rutaId} publico=${publico}`);
+        const mongoDBClientRuta = new MongoDBClientRuta();
+        return await mongoDBClientRuta.updatePublico({ rutaId, publico });
+    }
 
 }
 

@@ -23,6 +23,7 @@ class RutaController {
         valoraciones: data.valoraciones || [],
         promedio_valoracion: data.promedio_valoracion || 0,
         fecha_creacion: data.fecha_creacion,
+        publico: Object.prototype.hasOwnProperty.call(data, 'publico') ? Boolean(data.publico) : undefined
       });
 
       const rutaService = new RutaService();
@@ -91,6 +92,7 @@ class RutaController {
     }
   }
 
+  // GET /rutas/:id/valoraciones
   async ratings(req, res, next) {
     try {
       const rutaId = req.params.id;
@@ -105,7 +107,7 @@ class RutaController {
       next(error);
     }
   }
-    async destroy(req, res, next) {
+  async destroy(req, res, next) {
     try {
       const rutaId = req.params.id;
       const uid = req.query.uid || req.headers['x-uid'] || req.user?.uid || null;
@@ -136,6 +138,25 @@ class RutaController {
   }
 
 
+  // PUT /rutas/:id/publico   { publico: true|false }
+  async setPublico(req, res, next) {
+    try {
+      const rutaId = req.params.id;
+      const { publico } = req.body;
+
+      if (typeof publico !== 'boolean') {
+        throw new ParametersError('publico debe ser boolean');
+      }
+
+      const rutaService = new RutaService();
+      const rutaMapper = new RutaMapper();
+
+      const updated = await rutaService.cambiarVisibilidad({ rutaId, publico });
+      return res.status(200).json(rutaMapper.toDTO(updated));
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = RutaController;
