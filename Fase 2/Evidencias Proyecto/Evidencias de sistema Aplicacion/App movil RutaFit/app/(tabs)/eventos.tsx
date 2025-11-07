@@ -112,8 +112,18 @@ export default function EventosScreen() {
 
       const res = await eventoService.getMisEventos(uid, 1, 50);
       const data = Array.isArray(res?.data) ? res.data : [];
-      // 👉 Solo programados
-      setMisEventos(data.filter(isProgramado));
+      // Solo programados y futuros
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+
+      const eventosFiltrados = data
+        .filter(isProgramado)
+        .filter(evento => {
+          const fechaEvento = new Date(evento.fecha_evento);
+          return fechaEvento >= hoy;
+        });
+
+      setMisEventos(eventosFiltrados);
     } catch {
       setErrorMis("No se pudieron cargar tus eventos.");
     } finally {
