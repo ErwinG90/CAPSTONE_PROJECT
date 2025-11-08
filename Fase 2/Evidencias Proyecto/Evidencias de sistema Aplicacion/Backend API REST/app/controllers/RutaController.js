@@ -38,20 +38,60 @@ class RutaController {
     }
   }
 
-  // listar todas las rutas
-  async findAll(req, res, next) {
-    try {
-      const rutaService = new RutaService();
-      const rutaMapper = new RutaMapper();
+  // listar todas las rutas (o con filtros si vienen query params)
+async findAll(req, res, next) {
+  try {
+    const {
+      tipo_deporte,
+      nivel_dificultad,
+      minDist,
+      maxDist,
+      page,
+      limit,
+    } = req.query;
 
+    const hasFilters =
+      (tipo_deporte && String(tipo_deporte).trim()) ||
+      (nivel_dificultad && String(nivel_dificultad).trim()) ||
+      (minDist != null && String(minDist).trim() !== "") ||
+      (maxDist != null && String(maxDist).trim() !== "");
+
+    const rutaService = new RutaService();
+    const rutaMapper = new RutaMapper();
+
+    if (!hasFilters) {
+      // → SIN filtros: devolver TODAS, ordenadas por fecha desc
       const rutas = await rutaService.findAll();
-      const rutasDTO = rutas.map((ruta) => rutaMapper.toDTO(ruta));
-
-      res.status(200).json(rutasDTO);
-    } catch (error) {
-      next(error);
+      const rutasDTO = rutas
+        .sort((a, b) => new Date(b.fecha_creacion ?? 0) - new Date(a.fecha_creacion ?? 0))
+        .map((r) => rutaMapper.toDTO(r));
+      return res.status(200).json(rutasDTO);
     }
+
+    // → CON filtros: delegar a la versión con filtros/paginación
+    const result = await rutaService.findAllWithFilters({
+      page,
+      limit,
+      tipo_deporte,
+      nivel_dificultad,
+      minDist,
+      maxDist,
+    });
+
+    // Normalizamos a { data, total, page, limit, totalPages }
+    const dataDTO = (result.data || []).map(d => rutaMapper.toDTO(d));
+    return res.status(200).json({
+      data: dataDTO,
+      total: result.total ?? dataDTO.length,
+      page: result.page ?? 1,
+      limit: result.limit ?? (dataDTO.length || 20),
+      totalPages: result.totalPages ?? 1,
+    });
+  } catch (error) {
+    next(error);
   }
+}
+
 
   // listar SOLO las rutas del usuario (mías)
   // GET /rutas/mias?uid=...&page=1&limit=20&q=senderismo
@@ -157,6 +197,8 @@ class RutaController {
       next(error);
     }
   }
+
+
 
 }
 
