@@ -171,25 +171,7 @@ class RutaService {
         const updated = await repo.updatePublico({ rutaId, publico });
         return mapper.toDomain(updated);
     }
-    //añadir metodo y filtrar
-    async findAllWithFilters(params) {
-  const RutaRepository = require('../repositories/RutaRepository');
-  const RutaMapper = require('../mappers/RutaMapper');
-
-  const repo = new RutaRepository();
-  const mapper = new RutaMapper();
-
-  const { items, total, page, limit } = await repo.findWithFilters(params);
-
-  return {
-    data: items.map(d => mapper.toDomain(d)),
-    total,
-    page,
-    limit,
-    totalPages: Math.max(1, Math.ceil(total / Math.max(1, limit))),
-  };
-}
-
+    
 }
 
 module.exports = RutaService;

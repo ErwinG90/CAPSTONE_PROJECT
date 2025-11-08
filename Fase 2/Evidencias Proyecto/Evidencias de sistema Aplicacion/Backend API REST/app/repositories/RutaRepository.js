@@ -62,56 +62,6 @@ class RutaRepository {
         const mongoDBClientRuta = new MongoDBClientRuta();
         return await mongoDBClientRuta.updatePublico({ rutaId, publico });
     }
-//filtraar 
-    async findWithFilters({
-  page = 1,
-  limit = 20,
-  tipo_deporte,
-  nivel_dificultad,
-  minDist,
-  maxDist,
-} = {}) {
-  const MongoDBClientRuta = require('../clients/MongoDBClientRuta');
-  const mongo = new MongoDBClientRuta();
-  if (!mongo.collection) await mongo.connect();
-
-  const p = Math.max(1, Number(page));
-  const l = Math.max(1, Number(limit));
-  const skip = (p - 1) * l;
-
-  // Filtro base
-  const filter = {};
-
-  if (tipo_deporte && String(tipo_deporte).trim()) {
-    filter.tipo_deporte = String(tipo_deporte).trim();
   }
-
-  if (nivel_dificultad && String(nivel_dificultad).trim()) {
-    filter.nivel_dificultad = String(nivel_dificultad).trim();
-  }
-
-  if (minDist != null || maxDist != null) {
-    filter.distancia_km = {};
-    if (minDist != null) filter.distancia_km.$gte = Number(minDist);
-    if (maxDist != null) filter.distancia_km.$lte = Number(maxDist);
-  }
-
-  // Orden: MÁS RECIENTE PRIMERO
-  const sortStage = { fecha_creacion: -1, _id: -1 };
-
-  const cursor = mongo.collection
-    .find(filter)
-    .sort(sortStage)
-    .skip(skip)
-    .limit(l);
-
-  const [items, total] = await Promise.all([
-    cursor.toArray(),
-    mongo.collection.countDocuments(filter),
-  ]);
-
-  return { items, total, page: p, limit: l };
-}
-}
 
 module.exports = RutaRepository;
