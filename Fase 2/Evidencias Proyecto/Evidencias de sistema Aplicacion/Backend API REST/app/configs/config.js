@@ -33,7 +33,7 @@ const config = {
     },
   },
   cors: {
-    origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:8081', 'https://capstone-project-3-13xo.onrender.com'],
+    origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:8081', 'https://capstone-project-3-13xo.onrender.com', 'http://localhost:5173'],
 
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
