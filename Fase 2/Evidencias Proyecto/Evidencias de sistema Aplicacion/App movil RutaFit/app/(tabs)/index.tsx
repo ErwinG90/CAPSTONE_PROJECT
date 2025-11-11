@@ -494,7 +494,7 @@ export default function HomeScreen() {
         Alert.alert("Snap to Roads", String(e?.message ?? e));
       }
       setPuntosRecorrido(points); // o snappedPath si prefieres la ruta ajustada
-      setDistancia(distanceMeters);
+      setDistancia(distanceMeters / 1000);
       setMostrarFormulario(true);
     } else {
       await startAndRecenter();
