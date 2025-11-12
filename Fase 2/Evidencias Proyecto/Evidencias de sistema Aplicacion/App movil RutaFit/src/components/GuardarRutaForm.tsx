@@ -67,10 +67,10 @@ export default function GuardarRutaForm({
         setGuardandoRuta(true);
 
         // NUEVO: Validar movimiento mínimo antes que todo
-        if (distancia < 0.015) { // 15 metros = 0.015 km
+        if (distancia < 0.1) { // 100 metros = 0.1 km
             Alert.alert(
                 "Ruta no válida",
-                "No se detectó movimiento suficiente. Para guardar una ruta debes caminar al menos 15 metros."
+                "No se detectó movimiento suficiente. Para guardar una ruta debes caminar al menos 100 metros."
             );
             setGuardandoRuta(false);
             return;
