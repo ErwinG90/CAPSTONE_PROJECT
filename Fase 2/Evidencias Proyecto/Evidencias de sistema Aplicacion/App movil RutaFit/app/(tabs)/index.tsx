@@ -696,7 +696,7 @@ export default function HomeScreen() {
 
               {/* Iniciar recorrido: solo cerca del inicio */}
               <Pressable
-                disabled={!(distToStartMeters != null && distToStartMeters <= FOLLOW_THRESHOLDS.nearStartMeters) && !tracking}
+                disabled={!tracking && !(distToStartMeters != null && distToStartMeters <= FOLLOW_THRESHOLDS.nearStartMeters)}
                 onPress={() => {
                   if (tracking) {
                     stopFollowTracking();
