@@ -1,4 +1,5 @@
 import { Outlet, NavLink } from "react-router-dom";
+import logo from "../rutafit_logon_sin_texto.png";
 
 export default function AppLayout() {
     return (
@@ -7,9 +8,15 @@ export default function AppLayout() {
             <aside className="w-64 border-r bg-white hidden md:flex md:flex-col">
                 <div className="px-4 py-5 border-b">
                     <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-gray-900 text-white flex items-center justify-center">🏁</div>
+                        <div className="h-11 w-11 rounded-full bg-gray-900 flex items-center justify-center overflow-hidden">
+                            <img
+                                src={logo}
+                                alt="RutaFit"
+                                className="h-10 w-10 object-contain"
+                            />
+                        </div>
                         <div>
-                            <p className="text-sm font-semibold">SportRoutes</p>
+                            <p className="text-sm font-extrabold text-green-600">RutaFit</p>
                             <span className="text-xs rounded bg-gray-100 px-2 py-0.5">Admin</span>
                         </div>
                     </div>
@@ -35,7 +42,7 @@ export default function AppLayout() {
                 <header className="h-16 bg-white border-b flex items-center px-6 justify-between">
                     <div>
                         <h1 className="text-xl font-semibold">Panel de Control</h1>
-                        <p className="text-gray-500 text-sm">Análisis y métricas de la aplicación SportRoutes</p>
+                        <p className="text-gray-500 text-sm">Análisis y métricas de la aplicación RutaFit</p>
                     </div>
                     <span className="text-xs bg-gray-100 px-2 py-1 rounded">Administrador</span>
                 </header>
