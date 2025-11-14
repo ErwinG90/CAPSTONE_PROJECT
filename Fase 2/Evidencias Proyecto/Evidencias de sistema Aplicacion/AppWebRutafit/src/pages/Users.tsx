@@ -228,7 +228,7 @@ export default function Users() {
         {/* Barras por deporte favorito */}
         <div className="rounded-2xl bg-white shadow p-4">
           <h3 className="text-sm font-semibold mb-2">
-            Usuarios por deporte favorito (Top 5)
+            Usuarios por deporte favorito (Top 4)
           </h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
