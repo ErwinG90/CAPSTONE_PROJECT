@@ -4,7 +4,6 @@ import AppLayout from "./layouts/AppLayout";
 import Users from "./pages/Users";
 import RoutesPage from "./pages/RoutesPage";
 import Events from "./pages/Eventos";
-import Settings from "./pages/Settings";
 import Dashboard from "./pages/Dashboard";
 
 export default function App() {
@@ -20,7 +19,6 @@ export default function App() {
         <Route path="users" element={<Users />} />
         <Route path="routes" element={<RoutesPage />} />
         <Route path="events" element={<Events />} />
-        <Route path="settings" element={<Settings />} />
       </Route>
 
       {/* Fallback */}
