@@ -1,4 +1,12 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import {
+  IoHomeOutline,
+  IoPeopleOutline,
+  IoMapOutline,
+  IoCalendarOutline,
+  IoSettingsOutline,
+  IoLogOutOutline,
+} from "react-icons/io5";
 import logo from "../rutafit_logon_sin_texto.png";
 
 export default function AppLayout() {
@@ -33,11 +41,31 @@ export default function AppLayout() {
         </div>
 
         <nav className="p-2 flex-1">
-          <SideLink to="/app/dashboard" label="Panel Principal" icon="🏠" />
-          <SideLink to="/app/users" label="Usuarios" icon="👥" />
-          <SideLink to="/app/routes" label="Rutas" icon="🗺️" />
-          <SideLink to="/app/events" label="Eventos" icon="📅" />
-          <SideLink to="/app/settings" label="Configuración" icon="⚙️" />
+          <SideLink
+            to="/app/dashboard"
+            label="Panel Principal"
+            icon={<IoHomeOutline className="text-lg" />}
+          />
+          <SideLink
+            to="/app/users"
+            label="Usuarios"
+            icon={<IoPeopleOutline className="text-lg" />}
+          />
+          <SideLink
+            to="/app/routes"
+            label="Rutas"
+            icon={<IoMapOutline className="text-lg" />}
+          />
+          <SideLink
+            to="/app/events"
+            label="Eventos"
+            icon={<IoCalendarOutline className="text-lg" />}
+          />
+          <SideLink
+            to="/app/settings"
+            label="Configuración"
+            icon={<IoSettingsOutline className="text-lg" />}
+          />
         </nav>
 
         <div className="p-4 border-t text-xs">
@@ -63,10 +91,10 @@ export default function AppLayout() {
             </span>
             <button
               onClick={handleLogout}
-              className="text-xs rounded-lg border px-3 py-1.5 bg-white hover:bg-gray-50 flex items-center gap-1"
+              className="text-xs rounded-lg border px-3 py-1.5 bg-white hover:bg-gray-50 flex items-center gap-2"
             >
-              <span aria-hidden>⬅️</span>
-              Cerrar sesión
+              <IoLogOutOutline className="text-sm" />
+              <span>Cerrar sesión</span>
             </button>
           </div>
         </header>
@@ -80,19 +108,28 @@ export default function AppLayout() {
   );
 }
 
-function SideLink({ to, label, icon }: { to: string; label: string; icon: string }) {
+import type { ReactNode } from "react";
+
+function SideLink({
+  to,
+  label,
+  icon,
+}: {
+  to: string;
+  label: string;
+  icon: ReactNode;
+}) {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
-          isActive
-            ? "bg-green-50 text-green-700 font-medium"
-            : "hover:bg-gray-100 text-gray-700"
+        `flex items-center_gap-3 px-3 py-2 rounded-lg text-sm ${isActive
+          ? "bg-green-50 text-green-700 font-medium"
+          : "hover:bg-gray-100 text-gray-700"
         }`
       }
     >
-      <span className="w-5 text-center">{icon}</span>
+      <span className="w-5 flex items-center justify-center">{icon}</span>
       <span>{label}</span>
     </NavLink>
   );
