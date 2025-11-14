@@ -61,11 +61,6 @@ export default function AppLayout() {
             label="Eventos"
             icon={<IoCalendarOutline className="text-lg" />}
           />
-          <SideLink
-            to="/app/settings"
-            label="Configuración"
-            icon={<IoSettingsOutline className="text-lg" />}
-          />
         </nav>
 
         <div className="p-4 border-t text-xs">
