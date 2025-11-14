@@ -86,6 +86,8 @@ export default function Eventos() {
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [page, setPage] = useState(1);
+    const pageSize = 8;
 
     // Mapa uid -> nombre del usuario
     const [userMap, setUserMap] = useState<Record<string, string>>({});
@@ -265,6 +267,18 @@ export default function Eventos() {
         });
     }, [eventosProcesados, search, userMap]);
 
+    // Total de páginas según el resultado filtrado
+    const pages = useMemo(
+        () => Math.max(1, Math.ceil(filtered.length / pageSize)),
+        [filtered.length]
+    );
+
+    // Eventos que se muestran en la página actual
+    const paginated = useMemo(() => {
+        const start = (page - 1) * pageSize;
+        return filtered.slice(start, start + pageSize);
+    }, [filtered, page, pageSize]);
+
     // KPIs
     const stats = {
         proximos: eventosProcesados.filter((e) => e.estado === "programado").length,
@@ -305,7 +319,10 @@ export default function Eventos() {
                     className="w-full border rounded-md px-3 py-2"
                     placeholder="Buscar por título, creador, estado o ubicación…"
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => {
+                        setPage(1);
+                        setSearch(e.target.value);
+                    }}
                 />
                 <button className="px-3 py-2 border rounded-md">Filtros</button>
             </div>
@@ -498,7 +515,7 @@ export default function Eventos() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.map((e) => {
+                            {paginated.map((e) => {
                                 const { fecha, hora } = formatFecha(e.fecha_evento);
                                 const cupo = `${e.participantes.length} / ${e.max_participantes}`;
                                 const pct = Math.min(
@@ -579,6 +596,34 @@ export default function Eventos() {
                             )}
                         </tbody>
                     </table>
+                )}
+                {!loading && !error && (
+                    <>
+                        <table className="w-full text-sm">
+                            {/* ... tu thead y tbody tal como están, usando paginated ... */}
+                        </table>
+
+                        {/* Paginación */}
+                        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t bg-gray-50">
+                            <button
+                                className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50"
+                                disabled={page <= 1}
+                                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            >
+                                Anterior
+                            </button>
+                            <span className="text-sm text-gray-600">
+                                Página {page} de {pages}
+                            </span>
+                            <button
+                                className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50"
+                                disabled={page >= pages}
+                                onClick={() => setPage((p) => Math.min(pages, p + 1))}
+                            >
+                                Siguiente
+                            </button>
+                        </div>
+                    </>
                 )}
             </div>
 
