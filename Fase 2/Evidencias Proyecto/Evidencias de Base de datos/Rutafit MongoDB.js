@@ -8,7 +8,8 @@ db.createCollection("usuarios", {
                 "fechaNacimiento",
                 "genero",
                 "deporteFavorito",
-                "nivelExperiencia"
+                "nivelExperiencia",
+                "notifications"
             ],
             properties: {
                 _id: {
@@ -33,7 +34,8 @@ db.createCollection("usuarios", {
                     description: "Fecha de nacimiento es requerida y debe ser tipo Date"
                 },
                 genero: {
-                    enum: ["Masculino", "Femenino", "Otro"],
+                    bsonType: "string",
+                    enum: ["hombre", "mujer"],
                     description: "Género es requerido y debe ser uno de los valores predefinidos"
                 },
                 deporteFavorito: {
@@ -67,6 +69,29 @@ db.createCollection("usuarios", {
                 avatar: {
                     bsonType: "string",
                     description: "URL o base64 del avatar del usuario"
+                },
+                expoPushToken: {
+                    bsonType: "string",
+                    description: "Token para notificaciones push (Expo)"
+                },
+                notifications: {
+                    bsonType: "object",
+                    required: ["enabled", "onEventJoin", "onEventCancelled"],
+                    properties: {
+                        enabled: {
+                            bsonType: "bool",
+                            description: "Habilitar/deshabilitar todas las notificaciones"
+                        },
+                        onEventJoin: {
+                            bsonType: "bool",
+                            description: "Notificación al unirse a un evento"
+                        },
+                        onEventCancelled: {
+                            bsonType: "bool",
+                            description: "Notificación al cancelarse un evento"
+                        }
+                    },
+                    description: "Configuración de notificaciones del usuario"
                 }
             }
         }
