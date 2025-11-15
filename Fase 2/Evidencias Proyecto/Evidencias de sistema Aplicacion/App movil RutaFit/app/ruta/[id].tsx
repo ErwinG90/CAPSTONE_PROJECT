@@ -17,7 +17,7 @@ import { auth } from "../../src/firebaseConfig";
 import { useFollowStore } from "../../src/features/follow/store";
 import { rutaService } from "../../services/RutaService";
 import { AVATAR_IMAGES, type AvatarKey } from "../../src/Constants";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ===== Tipos UI mínimos (ajústalos si ya los tienes tipados) =====
 type Ruta = {
@@ -188,6 +188,9 @@ export default function RutaDetailScreen() {
     const uid = auth.currentUser?.uid;
     const setFollowingRoute = useFollowStore((s) => s.setFollowingRoute);
 
+    // safe area (para que el modal no choque con los botones del sistema)
+    const insets = useSafeAreaInsets();
+
     // cargar ruta desde params (o haz GET por id si lo prefieres)
     useEffect(() => {
         let mounted = true;
@@ -260,8 +263,13 @@ export default function RutaDetailScreen() {
         return (
             <View className="flex-1 items-center justify-center px-6 bg-white">
                 <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
-                <Text className="text-red-500 text-center mt-4">{error ?? "No se encontró la ruta"}</Text>
-                <Pressable className="mt-6 bg-black px-6 py-3 rounded-xl" onPress={() => router.back()}>
+                <Text className="text-red-500 text-center mt-4">
+                    {error ?? "No se encontró la ruta"}
+                </Text>
+                <Pressable
+                    className="mt-6 bg-black px-6 py-3 rounded-xl"
+                    onPress={() => router.back()}
+                >
                     <Text className="text-white font-semibold">Volver</Text>
                 </Pressable>
             </View>
@@ -287,7 +295,10 @@ export default function RutaDetailScreen() {
             Alert.alert("¡Gracias!", "Tu calificación fue registrada.");
         } catch (e: any) {
             console.error("POST valoracion error:", e?.message);
-            Alert.alert("No se pudo calificar", e?.response?.data?.message || "Inténtalo nuevamente.");
+            Alert.alert(
+                "No se pudo calificar",
+                e?.response?.data?.message || "Inténtalo nuevamente."
+            );
         }
     };
 
@@ -311,7 +322,7 @@ export default function RutaDetailScreen() {
                             <>
                                 <MapView
                                     ref={(ref) => {
-                                        if (ref && !ref.getCamera) return;
+                                        if (ref && !(ref as any).getCamera) return;
                                         (mapRef as any).current = ref;
                                     }}
                                     style={{ height: "100%", width: "100%" }}
@@ -324,13 +335,23 @@ export default function RutaDetailScreen() {
                                     onRegionChangeComplete={(newRegion) => {
                                         if (initialRegion) {
                                             const zoomChanged =
-                                                Math.abs(newRegion.latitudeDelta - initialRegion.latitudeDelta) > 0.001 ||
-                                                Math.abs(newRegion.longitudeDelta - initialRegion.longitudeDelta) > 0.001;
+                                                Math.abs(
+                                                    newRegion.latitudeDelta -
+                                                    initialRegion.latitudeDelta
+                                                ) > 0.001 ||
+                                                Math.abs(
+                                                    newRegion.longitudeDelta -
+                                                    initialRegion.longitudeDelta
+                                                ) > 0.001;
                                             setHasZoomed(zoomChanged);
                                         }
                                     }}
                                 >
-                                    <Polyline coordinates={polyline} strokeColor="#2563eb" strokeWidth={4} />
+                                    <Polyline
+                                        coordinates={polyline}
+                                        strokeColor="#2563eb"
+                                        strokeWidth={4}
+                                    />
                                 </MapView>
 
                                 {hasZoomed && (
@@ -338,19 +359,28 @@ export default function RutaDetailScreen() {
                                         className="absolute bottom-3 right-3 bg-black/60 p-2.5 rounded-full"
                                         onPress={() => {
                                             if ((mapRef as any).current && initialRegion) {
-                                                (mapRef as any).current.animateToRegion(initialRegion, 300);
+                                                (mapRef as any).current.animateToRegion(
+                                                    initialRegion,
+                                                    300
+                                                );
                                                 setHasZoomed(false);
                                             }
                                         }}
                                     >
-                                        <Ionicons name="expand-outline" size={18} color="white" />
+                                        <Ionicons
+                                            name="expand-outline"
+                                            size={18}
+                                            color="white"
+                                        />
                                     </Pressable>
                                 )}
                             </>
                         ) : (
                             <View className="flex-1 items-center justify-center">
                                 <Ionicons name="map-outline" size={48} color="#9ca3af" />
-                                <Text className="text-gray-500 mt-2">Vista previa de la ruta</Text>
+                                <Text className="text-gray-500 mt-2">
+                                    Vista previa de la ruta
+                                </Text>
                             </View>
                         )}
                     </View>
@@ -361,7 +391,10 @@ export default function RutaDetailScreen() {
                             className="bg-green-600 rounded-xl py-4 items-center flex-row justify-center"
                             onPress={() => {
                                 // Enviar al mapa principal la ruta a seguir (Follow Mode)
-                                if (ruta?.recorrido?.coordinates && ruta.recorrido.coordinates.length >= 2) {
+                                if (
+                                    ruta?.recorrido?.coordinates &&
+                                    ruta.recorrido.coordinates.length >= 2
+                                ) {
                                     setFollowingRoute({
                                         id: String(ruta._id || ruta.id || id),
                                         nombre: ruta.nombre ?? "Ruta",
@@ -373,8 +406,15 @@ export default function RutaDetailScreen() {
                                 router.replace("/(tabs)");
                             }}
                         >
-                            <Ionicons name="play" size={20} color="white" style={{ marginRight: 8 }} />
-                            <Text className="text-white font-semibold text-base">Iniciar esta Ruta</Text>
+                            <Ionicons
+                                name="play"
+                                size={20}
+                                color="white"
+                                style={{ marginRight: 8 }}
+                            />
+                            <Text className="text-white font-semibold text-base">
+                                Iniciar esta Ruta
+                            </Text>
                         </Pressable>
                     </View>
 
@@ -384,12 +424,16 @@ export default function RutaDetailScreen() {
                             <View className="flex-row gap-2">
                                 {ruta.deporte ? (
                                     <View className="px-3 py-1 rounded-full bg-gray-100">
-                                        <Text className="text-sm text-gray-700">{ruta.deporte}</Text>
+                                        <Text className="text-sm text-gray-700">
+                                            {ruta.deporte}
+                                        </Text>
                                     </View>
                                 ) : null}
                                 {ruta.nivel ? (
                                     <View className="px-3 py-1 rounded-full bg-black">
-                                        <Text className="text-sm text-white font-medium">{ruta.nivel}</Text>
+                                        <Text className="text-sm text-white font-medium">
+                                            {ruta.nivel}
+                                        </Text>
                                     </View>
                                 ) : null}
                             </View>
@@ -400,7 +444,9 @@ export default function RutaDetailScreen() {
                                         {Number(localAvg).toFixed(1)}
                                     </Text>
                                     {localCount != null && (
-                                        <Text className="ml-1 text-sm text-gray-500">({localCount})</Text>
+                                        <Text className="ml-1 text-sm text-gray-500">
+                                            ({localCount})
+                                        </Text>
                                     )}
                                 </View>
                             )}
@@ -408,15 +454,23 @@ export default function RutaDetailScreen() {
 
                         <Text className="text-2xl font-bold mb-1">{nombre}</Text>
                         {ruta.descripcion ? (
-                            <Text className="text-sm text-gray-600 leading-5 mb-4">{ruta.descripcion}</Text>
+                            <Text className="text-sm text-gray-600 leading-5 mb-4">
+                                {ruta.descripcion}
+                            </Text>
                         ) : null}
 
                         {/* Métrica distancia */}
                         <View className="bg-gray-50 rounded-xl p-4 mb-4">
                             <View className="flex-row justify-center">
                                 <View className="items-center">
-                                    <Ionicons name="trail-sign-outline" size={24} color="#6b7280" />
-                                    <Text className="text-xs text-gray-500 mt-1">Distancia</Text>
+                                    <Ionicons
+                                        name="trail-sign-outline"
+                                        size={24}
+                                        color="#6b7280"
+                                    />
+                                    <Text className="text-xs text-gray-500 mt-1">
+                                        Distancia
+                                    </Text>
                                     <Text className="text-lg font-semibold mt-1">
                                         {formatDistance(ruta.distanciaKm)}
                                     </Text>
@@ -429,15 +483,25 @@ export default function RutaDetailScreen() {
                     <View className="px-4 py-4 border-t border-gray-200">
                         <View className="flex-row items-center justify-between mb-4">
                             <View className="flex-row items-center">
-                                <Ionicons name="chatbubble-outline" size={20} color="#111" />
+                                <Ionicons
+                                    name="chatbubble-outline"
+                                    size={20}
+                                    color="#111"
+                                />
                                 <Text className="text-lg font-semibold ml-2">
                                     Calificaciones ({cals?.length ?? 0})
                                 </Text>
                             </View>
                             <Pressable onPress={() => setShowModal(true)}>
                                 <View className="flex-row items-center">
-                                    <Ionicons name="star-outline" size={18} color="#111" />
-                                    <Text className="ml-1 text-sm font-medium">Calificar</Text>
+                                    <Ionicons
+                                        name="star-outline"
+                                        size={18}
+                                        color="#111"
+                                    />
+                                    <Text className="ml-1 text-sm font-medium">
+                                        Calificar
+                                    </Text>
                                 </View>
                             </Pressable>
                         </View>
@@ -447,9 +511,16 @@ export default function RutaDetailScreen() {
                                 <ActivityIndicator />
                             </View>
                         ) : cals.length === 0 ? (
-                            <Text className="text-gray-500">Aún no hay calificaciones.</Text>
+                            <Text className="text-gray-500">
+                                Aún no hay calificaciones.
+                            </Text>
                         ) : (
-                            cals.map((it, idx) => <CalificacionRow key={`${it.id_usuario}-${idx}`} item={it} />)
+                            cals.map((it, idx) => (
+                                <CalificacionRow
+                                    key={`${it.id_usuario}-${idx}`}
+                                    item={it}
+                                />
+                            ))
                         )}
                     </View>
                 </ScrollView>
@@ -459,34 +530,61 @@ export default function RutaDetailScreen() {
                     <View className="flex-1 bg-black/40 items-center justify-end">
                         <View
                             className="bg-white w-full rounded-t-2xl p-5"
+                            style={{
+                                paddingBottom: (insets.bottom || 16) + 8, // respeta la barra de navegación
+                            }}
                         >
                             <View className="items-center mb-3">
-                                <Text className="text-lg font-semibold">Calificar Ruta</Text>
-                                <Text className="text-gray-500 mt-1">Selecciona tu puntuación</Text>
+                                <Text className="text-lg font-semibold">
+                                    Calificar Ruta
+                                </Text>
+                                <Text className="text-gray-500 mt-1">
+                                    Selecciona tu puntuación
+                                </Text>
                             </View>
 
                             <View className="flex-row items-center justify-center my-3">
                                 {[1, 2, 3, 4, 5].map((s) => (
-                                    <Pressable key={s} onPress={() => setMyStars(s)} className="mx-1">
+                                    <Pressable
+                                        key={s}
+                                        onPress={() => setMyStars(s)}
+                                        className="mx-1"
+                                    >
                                         <Ionicons
-                                            name={s <= myStars ? "star" : "star-outline"}
+                                            name={
+                                                s <= myStars
+                                                    ? "star"
+                                                    : "star-outline"
+                                            }
                                             size={32}
-                                            color={s <= myStars ? "#facc15" : "#9ca3af"}
+                                            color={
+                                                s <= myStars
+                                                    ? "#facc15"
+                                                    : "#9ca3af"
+                                            }
                                         />
                                     </Pressable>
                                 ))}
                             </View>
 
                             <View className="flex-row justify-end mt-2">
-                                <Pressable onPress={() => setShowModal(false)} className="px-4 py-3 mr-2">
-                                    <Text className="text-gray-600 font-medium">Cancelar</Text>
+                                <Pressable
+                                    onPress={() => setShowModal(false)}
+                                    className="px-4 py-3 mr-2"
+                                >
+                                    <Text className="text-gray-600 font-medium">
+                                        Cancelar
+                                    </Text>
                                 </Pressable>
                                 <Pressable
                                     onPress={handleSubmitRating}
-                                    className={`px-4 py-3 rounded-xl ${myStars ? "bg-black" : "bg-gray-300"}`}
+                                    className={`px-4 py-3 rounded-xl ${myStars ? "bg-black" : "bg-gray-300"
+                                        }`}
                                     disabled={!myStars}
                                 >
-                                    <Text className="text-white font-semibold">Guardar</Text>
+                                    <Text className="text-white font-semibold">
+                                        Guardar
+                                    </Text>
                                 </Pressable>
                             </View>
                         </View>
