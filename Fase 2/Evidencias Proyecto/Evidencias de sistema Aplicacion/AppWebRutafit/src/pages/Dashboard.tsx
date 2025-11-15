@@ -191,7 +191,21 @@ export default function Dashboard() {
 
     /* ===== LISTAS RECIENTES ===== */
 
-    const ultimosUsuarios = useMemo(() => users.slice(0, 5), [users]);
+    const ultimosUsuarios = useMemo(() => {
+        if (!users || users.length === 0) return [];
+
+        const copia = [...users];
+
+        copia.sort((a, b) => {
+            const da = a.fechaRegistro ? new Date(a.fechaRegistro).getTime() : 0;
+            const db = b.fechaRegistro ? new Date(b.fechaRegistro).getTime() : 0;
+            // Orden descendente: primero los más nuevos
+            return db - da;
+        });
+
+        return copia.slice(0, 5);
+    }, [users]);
+
     const ultimasRutas = useMemo(() => rutas.slice(0, 5), [rutas]);
     const ultimosEventos = useMemo(() => eventos.slice(0, 5), [eventos]);
 
