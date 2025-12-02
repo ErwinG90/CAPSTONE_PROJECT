@@ -27,7 +27,7 @@ export async function fetchRutas(): Promise<Ruta[]> {
 
 // PUT /rutas/:id/publico   BODY: { "publico": true/false }
 export async function setRutaPublico(idRuta: string, esPublica: boolean) {
-    const body = { publico: esPublica }; // 👈 EXACTO COMO LO NECESITAS
+    const body = { publico: esPublica };
 
     const res = await fetch(`${BASE_URL}/${idRuta}/publico`, {
         method: "PUT",
@@ -72,6 +72,3 @@ export async function deleteRuta(idRuta: string, idCreador: string) {
     }
     return null;
 }
-
-
-

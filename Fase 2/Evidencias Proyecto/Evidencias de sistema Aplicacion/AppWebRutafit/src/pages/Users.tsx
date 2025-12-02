@@ -22,9 +22,8 @@ import {
 const COLORS = ["#22c55e", "#3b82f6", "#f97316", "#ef4444", "#a855f7", "#14b8a6"];
 
 export default function Users() {
-  // Datos
+  // Datos completos desde el backend
   const [rows, setRows] = useState<UserBasic[]>([]);
-  const [total, setTotal] = useState(0);
 
   // Catálogos (id -> nombre)
   const [deportesMap, setDeportesMap] = useState<Record<string, string>>({});
@@ -35,12 +34,12 @@ export default function Users() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const pageSize = 8; // <- 8 usuarios por página
 
   // Usuario seleccionado para el detalle
   const [selected, setSelected] = useState<UserBasic | null>(null);
 
-  // Cargar catálogos 1 sola vez
+  /* ============ CARGA DE CATÁLOGOS ============ */
   useEffect(() => {
     let mounted = true;
     Promise.all([fetchDeportes(), fetchNiveles()])
@@ -55,52 +54,84 @@ export default function Users() {
     };
   }, []);
 
-  // Cargar usuarios
+  /* ============ CARGA DE USUARIOS + AUTOREFRESH ============ */
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
-    setError(null);
 
-    fetchUsers({ search, page, pageSize })
-      .then((data: UsersResponse) => {
-        if (!mounted) return;
-        setRows(data.rows);
-        setTotal(data.total);
-      })
-      .catch((e: unknown) => {
-        console.error(e);
-        if (mounted) setError((e as any)?.message ?? "Error al cargar usuarios");
-      })
-      .finally(() => setLoading(false));
+    const load = () => {
+      setLoading(true);
+      setError(null);
+
+      // Pedimos TODOS los usuarios; búsqueda/paginación serán locales
+      fetchUsers({})
+        .then((data: UsersResponse) => {
+          if (!mounted) return;
+          setRows(data.rows);
+        })
+        .catch((e: unknown) => {
+          console.error(e);
+          if (mounted) setError((e as any)?.message ?? "Error al cargar usuarios");
+        })
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+    };
+
+    load(); // primera carga
+    const id = setInterval(load, 30_000); // refresco cada 30s
 
     return () => {
       mounted = false;
+      clearInterval(id);
     };
-  }, [search, page]);
+  }, []);
 
-  const pages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total]);
+  /* ============ BÚSQUEDA + PAGINACIÓN LOCAL ============ */
 
-  /* ========= DATOS PARA GRÁFICOS ========= */
+  const filteredRows = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return rows;
+    return rows.filter(
+      (u) =>
+        u.nombre?.toLowerCase().includes(term) ||
+        u.apellido?.toLowerCase().includes(term) ||
+        u.email?.toLowerCase().includes(term)
+    );
+  }, [rows, search]);
+
+  const total = filteredRows.length;
+
+  const pages = useMemo(
+    () => Math.max(1, Math.ceil(total / pageSize)),
+    [total, pageSize]
+  );
+
+  const pagedRows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, page, pageSize]);
+
+  /* ========= DATOS PARA GRÁFICOS (sobre TODOS los filtrados) ========= */
 
   // Dona por género
   const genderData = useMemo(
     () => [
       {
         name: "hombre",
-        value: rows.filter((u) => u.genero?.toLowerCase() === "hombre").length,
+        value: filteredRows.filter((u) => u.genero?.toLowerCase() === "hombre").length,
       },
       {
         name: "mujer",
-        value: rows.filter((u) => u.genero?.toLowerCase() === "mujer").length,
+        value: filteredRows.filter((u) => u.genero?.toLowerCase() === "mujer").length,
       },
     ],
-    [rows]
+    [filteredRows]
   );
 
-  // Barras por deporte favorito (Top 5)
+  // Barras por deporte favorito (Top 4)
   const sportData = useMemo(() => {
     const counts: Record<string, number> = {};
-    rows.forEach((u) => {
+    filteredRows.forEach((u) => {
       if (!u.deporteFavorito) return;
       const id = u.deporteFavorito;
       counts[id] = (counts[id] ?? 0) + 1;
@@ -112,13 +143,13 @@ export default function Users() {
     }));
 
     list.sort((a, b) => b.value - a.value);
-    return list.slice(0, 5);
-  }, [rows, deportesMap]);
+    return list.slice(0, 4);
+  }, [filteredRows, deportesMap]);
 
   // Barras por nivel de experiencia
   const experienceData = useMemo(() => {
     const counts: Record<string, number> = {};
-    rows.forEach((u) => {
+    filteredRows.forEach((u) => {
       if (!u.nivelExperiencia) return;
       const id = u.nivelExperiencia;
       counts[id] = (counts[id] ?? 0) + 1;
@@ -130,13 +161,13 @@ export default function Users() {
     }));
 
     return list;
-  }, [rows, nivelesMap]);
+  }, [filteredRows, nivelesMap]);
 
   // Barras de nuevos usuarios por mes
   const monthlyData = useMemo(() => {
     const map: Record<string, number> = {};
 
-    rows.forEach((u) => {
+    filteredRows.forEach((u) => {
       if (!u.fechaRegistro) return;
       const d = new Date(u.fechaRegistro);
       if (isNaN(d.getTime())) return;
@@ -155,7 +186,7 @@ export default function Users() {
         });
         return { key, label, value };
       });
-  }, [rows]);
+  }, [filteredRows]);
 
   /* ========= RENDER ========= */
 
@@ -218,7 +249,9 @@ export default function Users() {
                   ))}
                   <LabelList dataKey="value" position="outside" />
                 </Pie>
-                <Tooltip formatter={(val) => [`${val} usuarios`, "Usuarios"]} />
+                <Tooltip
+                  formatter={(val) => [`total: ${val} usuarios`, "Total"]}
+                />
                 <Legend verticalAlign="bottom" height={32} />
               </PieChart>
             </ResponsiveContainer>
@@ -242,7 +275,9 @@ export default function Users() {
                   allowDecimals={false}
                   domain={[0, (dataMax: number) => dataMax + 1]}
                 />
-                <Tooltip formatter={(val) => [`${val} usuarios`, "Usuarios"]} />
+                <Tooltip
+                  formatter={(val) => [`total: ${val} usuarios`, "Total"]}
+                />
                 <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                   {sportData.map((entry, idx) => (
                     <Cell key={entry.name} fill={COLORS[idx % COLORS.length]} />
@@ -255,56 +290,66 @@ export default function Users() {
         </div>
       </div>
 
-      {/* ===== EXPERIENCIA ===== */}
-      <div className="mt-4 rounded-2xl bg-white shadow p-4">
-        <h3 className="text-sm font-semibold mb-2">Usuarios por nivel de experiencia</h3>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={experienceData}
-              margin={{ top: 30, right: 20, bottom: 30, left: 10 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" height={30} />
-              <YAxis
-                allowDecimals={false}
-                domain={[0, (dataMax: number) => dataMax + 1]}
-              />
-              <Tooltip formatter={(val) => [`${val} usuarios`, "Usuarios"]} />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                {experienceData.map((entry, idx) => (
-                  <Cell key={entry.name} fill={COLORS[(idx + 2) % COLORS.length]} />
-                ))}
-                <LabelList dataKey="value" position="top" />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+      {/* ===== FILA 2 DE GRÁFICOS (lado a lado) ===== */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
+        {/* EXPERIENCIA */}
+        <div className="rounded-2xl bg-white shadow p-4">
+          <h3 className="text-sm font-semibold mb-2">
+            Usuarios por nivel de experiencia
+          </h3>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={experienceData}
+                margin={{ top: 30, right: 20, bottom: 30, left: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" height={30} />
+                <YAxis
+                  allowDecimals={false}
+                  domain={[0, (dataMax: number) => dataMax + 1]}
+                />
+                <Tooltip
+                  formatter={(val) => [`total: ${val} usuarios`, "Total"]}
+                />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                  {experienceData.map((entry, idx) => (
+                    <Cell key={entry.name} fill={COLORS[(idx + 2) % COLORS.length]} />
+                  ))}
+                  <LabelList dataKey="value" position="top" />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
 
-      {/* ===== NUEVOS USUARIOS POR MES ===== */}
-      <div className="mt-4 rounded-2xl bg-white shadow p-4">
-        <h3 className="text-sm font-semibold mb-2">Nuevos usuarios por mes</h3>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={monthlyData}
-              margin={{ top: 30, right: 20, bottom: 30, left: 10 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="label" height={30} />
-              <YAxis
-                allowDecimals={false}
-                domain={[0, (dataMax: number) => dataMax + 1]}
-              />
-              <Tooltip
-                formatter={(val) => [`${val} nuevos usuarios`, "Nuevos usuarios"]}
-              />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#3b82f6">
-                <LabelList dataKey="value" position="top" />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        {/* NUEVOS USUARIOS POR MES */}
+        <div className="rounded-2xl bg-white shadow p-4">
+          <h3 className="text-sm font-semibold mb-2">Nuevos usuarios por mes</h3>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={monthlyData}
+                margin={{ top: 30, right: 20, bottom: 30, left: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="label" height={30} />
+                <YAxis
+                  allowDecimals={false}
+                  domain={[0, (dataMax: number) => dataMax + 1]}
+                />
+                <Tooltip
+                  formatter={(val) => [
+                    `total: ${val} nuevos usuarios`,
+                    "Total",
+                  ]}
+                />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#3b82f6">
+                  <LabelList dataKey="value" position="top" />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
@@ -341,7 +386,7 @@ export default function Users() {
                 </td>
               </tr>
             )}
-            {!loading && rows.length === 0 && (
+            {!loading && pagedRows.length === 0 && (
               <tr>
                 <td colSpan={7} className="p-6 text-center text-gray-400">
                   Sin resultados
@@ -349,52 +394,42 @@ export default function Users() {
               </tr>
             )}
             {!loading &&
-              rows
-                .filter((u) => {
-                  if (!search.trim()) return true;
-                  const term = search.trim().toLowerCase();
-                  return (
-                    u.nombre?.toLowerCase().includes(term) ||
-                    u.apellido?.toLowerCase().includes(term) ||
-                    u.email?.toLowerCase().includes(term)
-                  );
-                })
-                .map((u) => (
-                  <tr key={u._id} className="border-t hover:bg-gray-50">
-                    <Td>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 text-xs font-semibold text-gray-600">
-                          {initials(u.nombre, u.apellido)}
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-800">
-                            {u.nombre} {u.apellido}
-                          </div>
-                          <div className="text-gray-500">{u.email}</div>
-                        </div>
+              pagedRows.map((u) => (
+                <tr key={u._id} className="border-t hover:bg-gray-50">
+                  <Td>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 text-xs font-semibold text-gray-600">
+                        {initials(u.nombre, u.apellido)}
                       </div>
-                    </Td>
-                    <Td>{u.genero ?? "—"}</Td>
-                    <Td>
-                      {deportesMap[u.deporteFavorito ?? ""] ??
-                        (u.deporteFavorito ?? "—")}
-                    </Td>
-                    <Td>
-                      {nivelesMap[u.nivelExperiencia ?? ""] ??
-                        (u.nivelExperiencia ?? "—")}
-                    </Td>
-                    <Td>{formatDate(u.fechaRegistro) ?? "—"}</Td>
-                    <Td>{calcEdad(u.fechaNacimiento) ?? "—"}</Td>
-                    <Td>
-                      <button
-                        className="px-3 py-1.5 rounded-lg border text-xs hover:bg-gray-100"
-                        onClick={() => setSelected(u)}
-                      >
-                        Ver detalle
-                      </button>
-                    </Td>
-                  </tr>
-                ))}
+                      <div>
+                        <div className="font-medium text-gray-800">
+                          {u.nombre} {u.apellido}
+                        </div>
+                        <div className="text-gray-500">{u.email}</div>
+                      </div>
+                    </div>
+                  </Td>
+                  <Td>{u.genero ?? "—"}</Td>
+                  <Td>
+                    {deportesMap[u.deporteFavorito ?? ""] ??
+                      (u.deporteFavorito ?? "—")}
+                  </Td>
+                  <Td>
+                    {nivelesMap[u.nivelExperiencia ?? ""] ??
+                      (u.nivelExperiencia ?? "—")}
+                  </Td>
+                  <Td>{formatDate(u.fechaRegistro) ?? "—"}</Td>
+                  <Td>{calcEdad(u.fechaNacimiento) ?? "—"}</Td>
+                  <Td>
+                    <button
+                      className="px-3 py-1.5 rounded-lg border text-xs hover:bg-gray-100"
+                      onClick={() => setSelected(u)}
+                    >
+                      Ver detalle
+                    </button>
+                  </Td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
