@@ -15,6 +15,7 @@ import { enrichProfile, preloadCatalogos } from "../../src/utils/refResolvers";
 import AvatarPickerModal from "../../src/components/profile/AvatarPickerModal";
 import EditProfileModal from "../../src/components/profile/EditProfileModal";
 import { updateUserProfile, updateUserAvatar } from "../../services/UserService";
+import { getUserStats } from "../../services/UserStatsService";
 
 
 const API_BASE = "https://capstone-project-3-13xo.onrender.com/ms-rutafit-neg";
@@ -35,6 +36,9 @@ export default function PerfilScreen() {
   // NUEVO: estado para modal y guardado de avatar
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
+
+  const [stats, setStats] = useState({ rutas: 0, distanciaTotal: 0, eventos: 0 });
+  const [loadingStats, setLoadingStats] = useState(true);
 
   // Precarga catálogos
   useEffect(() => {
@@ -74,14 +78,38 @@ export default function PerfilScreen() {
     load();
   }, [load]);
 
+  const loadStats = useCallback(async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    try {
+      setLoadingStats(true);
+      const userStats = await getUserStats(uid);
+      setStats({
+        rutas: userStats.rutasGrabadas,
+        distanciaTotal: userStats.distanciaTotal,
+        eventos: userStats.eventos
+      });
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  }, []);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await load();
+      await Promise.all([load(), loadStats()]);
     } finally {
       setRefreshing(false);
     }
-  }, [load]);
+  }, [load, loadStats]);
+
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   async function onLogout() {
     try {
@@ -275,10 +303,9 @@ export default function PerfilScreen() {
 
         {/* Tarjetas de estadísticas y ajustes (sin cambios) */}
         <StatsCard
-          rutas={profile?.stats?.rutas}
-          distanciaTotal={profile?.stats?.distanciaTotal}
-          eventos={profile?.stats?.eventos}
-          metaMensual={profile?.stats?.metaMensual}
+          rutas={loadingStats ? undefined : stats.rutas}
+          distanciaTotal={loadingStats ? undefined : `${stats.distanciaTotal.toFixed(1)}km`}
+          eventos={loadingStats ? undefined : stats.eventos}
         />
 
         <SettingsCard
