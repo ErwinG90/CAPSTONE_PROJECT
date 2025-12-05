@@ -18,7 +18,9 @@ class UserMapper {
             dto.fechaRegistro || new Date(),
             dto.rutas || [],
             dto.eventos || [],
-            dto.avatar || ""
+            dto.avatar || "",
+            dto.expoPushToken || "",
+            dto.notifications
         );
     }
 
@@ -45,7 +47,9 @@ class UserMapper {
             fechaRegistroChile,
             domain.rutas || [],
             domain.eventos || [],
-            domain.avatar || ""
+            domain.avatar || "",
+            domain.expoPushToken || "",
+            domain.notifications
         );
     }
 }

@@ -16,6 +16,7 @@ module.exports = {
       backgroundColor: "#ffffff",
     },
     ios: {
+      bundleIdentifier: "cl.rutafit.app",
       supportsTablet: true,
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -36,6 +37,7 @@ module.exports = {
           apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY, // 👈 misma var
         },
       },
+      googleServicesFile: "./google-services.json", // 👈 NUEVO para OneSignal
     },
     web: { favicon: "./assets/favicon.png", bundler: "metro" },
     plugins: [
@@ -47,6 +49,12 @@ module.exports = {
             "RutaFit necesita tu ubicación para mostrar el mapa y eventos cercanos.",
         },
       ],
+      [
+        "onesignal-expo-plugin",
+        {
+          mode: "development",
+        },
+      ],
     ],
     extra: {
       EXPO_PUBLIC_FB_API_KEY: process.env.EXPO_PUBLIC_FB_API_KEY,
@@ -56,6 +64,10 @@ module.exports = {
       EXPO_PUBLIC_FB_MESSAGING_SENDER_ID:
         process.env.EXPO_PUBLIC_FB_MESSAGING_SENDER_ID,
       EXPO_PUBLIC_FB_APP_ID: process.env.EXPO_PUBLIC_FB_APP_ID,
+      oneSignalAppId: "43460cd2-02b7-44be-bc6a-10366830ab96",
+      eas: {
+        projectId: "e4472580-53f1-4f88-a69a-f70d68812bda",
+      },
     },
   },
 };
