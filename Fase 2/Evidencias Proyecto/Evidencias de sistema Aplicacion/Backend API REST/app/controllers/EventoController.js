@@ -236,12 +236,71 @@ class EventoController {
         return res.status(400).json({ message });
       }
 
+      // 🔔 BLOQUE: si el que cancela es el creador, notificar a los participantes
+      try {
+        console.info(`${new Date().toISOString()} [EventoController] [cancelParticipation] [INFO] Verificando si el creador canceló el evento`);
+
+        const eventoRepo = new EventoRepository();
+        const rawEvent = await eventoRepo.findById(id);
+
+        if (!rawEvent) {
+          console.warn('[EventoController] [cancelParticipation] [WARN] Evento no encontrado en repo para notificación');
+        } else {
+          const creatorUid = rawEvent.createdBy;
+          console.info('[DEBUG EVENTO RAW CANCEL]', {
+            id: rawEvent._id?.toString(),
+            creatorUid,
+            nombre_evento: rawEvent.nombre_evento
+          });
+
+          // 👉 Solo enviamos notificación si quien llama es el creador
+          if (creatorUid === uid) {
+            const participantesUids = rawEvent.participantes || [];
+
+            if (participantesUids.length === 0) {
+              console.info('[EventoController] [cancelParticipation] [INFO] Evento sin participantes, no se envían notificaciones');
+            } else {
+              // Buscar a todos los participantes y obtener sus tokens
+              const participantes = await Promise.all(
+                participantesUids.map(pUid => userService.findByUid(pUid))
+              );
+
+              const playerIds = participantes
+                .filter(u => u && u.expoPushToken)
+                .map(u => u.expoPushToken);
+
+              console.info('[DEBUG PARTICIPANTES CANCEL]', {
+                totalParticipantes: participantesUids.length,
+                conToken: playerIds.length
+              });
+
+              if (playerIds.length > 0) {
+                await notificationService.notifyEventCancelled(
+                  rawEvent._id.toString(),
+                  rawEvent.nombre_evento || rawEvent.nombre || 'Tu evento',
+                  playerIds
+                );
+              } else {
+                console.warn('[EventoController] [cancelParticipation] [WARN] No hay participantes con expoPushToken para notificar cancelación');
+              }
+            }
+          } else {
+            console.info('[EventoController] [cancelParticipation] [INFO] Cancelación hecha por un participante, no por el creador. No se notifica a nadie.');
+          }
+        }
+      } catch (notifError) {
+        console.error(
+          `${new Date().toISOString()} [EventoController] [cancelParticipation] [WARN] Error al enviar notificación de cancelación:`,
+          notifError.response?.data || notifError.message
+        );
+        // No rompemos la respuesta al cliente si falla la noti
+      }
+      // 🔔 FIN BLOQUE
+
       // 200 tanto si canceló como si no estaba inscrito
       return res.status(200).json({ message, code });
     } catch (e) { next(e); }
   }
-
-
 }
 
 module.exports = EventoController;
