@@ -4,6 +4,7 @@ const EventoService = require('../services/EventoService');
 const EventoMapper = require('../mappers/EventoMapper');
 const UserService = require('../services/UserService');
 const NotificationService = require('../services/NotificationService');
+const EventoRepository = require('../repositories/EventoRepository');
 
 const notificationService = new NotificationService();
 const userService = new UserService();
@@ -161,37 +162,46 @@ class EventoController {
 
       if (!ok) {
         if (code === 'NOT_FOUND') return res.status(404).json({ message });
-        if (code === 'EVENT_FULL') return res.status(409).json({ message }); // conflicto: sin cupos
+        if (code === 'EVENT_FULL') return res.status(409).json({ message }); // sin cupos
         return res.status(400).json({ message });
       }
 
+      // 🔔 BLOQUE: enviar notificación al creador del evento
       try {
-        // Si quieres, aquí puedes filtrar por code (por ejemplo solo cuando se unió realmente)
-        // if (code === 'JOINED' || code === 'NEW_PARTICIPANT') { ... }
+        console.info(`${new Date().toISOString()} [EventoController] [participate] [INFO] Intentando enviar notificación de nuevo participante`);
 
-        const eventoService = new EventoService();
-        const evento = await eventoService.findById(id);
+        // 1. Traer el evento directamente desde el repositorio (sin mapper)
+        const eventoRepo = new EventoRepository();
+        const rawEvent = await eventoRepo.findById(id);
 
-        if (evento) {
-          // usuario que se unió
+        if (!rawEvent) {
+          console.warn('[EventoController] [participate] [WARN] Evento no encontrado en repo para notificación');
+        } else {
+          // importarte: aquí debería venir el createdBy tal como está en Mongo
+          const creatorUid = rawEvent.createdBy;
+          console.info('[DEBUG EVENTO RAW]', { id: rawEvent._id?.toString(), creatorUid, nombre_evento: rawEvent.nombre_evento });
+
+          // 2. Traer datos del usuario que se unió
           const joinedUser = await userService.findByUid(uid);
 
-          // creador del evento (en tu save guardas data.createdBy)
-          const creatorUid = evento.createdBy;
+          // 3. Traer datos del creador del evento
           const creator = await userService.findByUid(creatorUid);
+          console.info('[DEBUG CREATOR]', {
+            creatorUid,
+            hasCreator: !!creator,
+            expoPushToken: creator?.expoPushToken
+          });
 
-          if (
-            creator &&
-            creator.notifications?.enabled &&
-            creator.notifications?.onEventJoin &&
-            creator.expoPushToken // aquí guardaremos el playerId de OneSignal
-          ) {
+          // Por ahora SOLO validamos que tenga expoPushToken para probar
+          if (creator && creator.expoPushToken) {
             await notificationService.notifyEventJoin(
-              evento._id.toString(),
-              evento.nombre_evento || evento.nombre || 'Tu evento',
+              rawEvent._id.toString(),
+              rawEvent.nombre_evento || rawEvent.nombre || 'Tu evento',
               joinedUser?.nombre || 'Un usuario',
               creator.expoPushToken
             );
+          } else {
+            console.warn('[EventoController] [participate] [WARN] Creador sin expoPushToken, no se envía notificación');
           }
         }
       } catch (notifError) {
@@ -199,13 +209,15 @@ class EventoController {
           `${new Date().toISOString()} [EventoController] [participate] [WARN] Error al enviar notificación:`,
           notifError.response?.data || notifError.message
         );
-        // No rompemos la respuesta al cliente si falla la noti
+        // NO rompemos la respuesta al cliente aunque falle la noti
       }
-      // 🔔 FIN BLOQUE NUEVO
+      // 🔔 FIN BLOQUE
 
       // 200 si se unió o ya estaba
       return res.status(200).json({ message, code });
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   }
 
   //  DELETE /eventos/:id/participar

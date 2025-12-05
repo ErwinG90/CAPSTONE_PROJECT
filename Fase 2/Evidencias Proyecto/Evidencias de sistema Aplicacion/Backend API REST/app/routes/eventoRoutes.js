@@ -24,4 +24,38 @@ router.get('/:id', (req, res, next) => eventoController.findById(req, res, next)
 router.post('/:id/participar', (req, res, next) => eventoController.participate(req, res, next));
 router.delete('/:id/participar', (req, res, next) => eventoController.cancelParticipation(req, res, next));
 
+// DEBUG endpoint para probar notificaciones
+router.post('/debug/notification', async (req, res, next) => {
+  try {
+    const NotificationService = require('../services/NotificationService');
+    const notificationService = new NotificationService();
+    
+    const { playerId, title, message } = req.body;
+    
+    // Verificar que las variables de entorno estén configuradas
+    console.log('OneSignal Config:', {
+      appId: process.env.ONESIGNAL_APP_ID ? 'Configurado' : 'NO configurado',
+      restApiKey: process.env.ONESIGNAL_REST_API_KEY ? 'Configurado' : 'NO configurado'
+    });
+    
+    if (!playerId) {
+      return res.status(400).json({ error: 'playerId es requerido' });
+    }
+    
+    const result = await notificationService.sendToUser(
+      playerId, 
+      title || 'Notificación de prueba', 
+      message || 'Esta es una notificación de prueba desde el backend'
+    );
+    
+    res.json({ success: true, result });
+  } catch (error) {
+    console.error('Error en debug notification:', error);
+    res.status(500).json({ 
+      error: 'Error enviando notificación', 
+      details: error.response?.data || error.message 
+    });
+  }
+});
+
 module.exports = router;

@@ -29,7 +29,7 @@ class User {
         this.rutas = Array.isArray(rutas) ? rutas : [];
         this.eventos = Array.isArray(eventos) ? eventos : [];
         this.avatar = typeof avatar === 'string' ? avatar : "";
-        
+
         // NOTIFICATION FIELDS
         this.expoPushToken = typeof expoPushToken === 'string' ? expoPushToken : "";
         this.notifications = notifications || {
