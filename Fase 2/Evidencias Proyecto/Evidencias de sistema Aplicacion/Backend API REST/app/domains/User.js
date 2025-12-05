@@ -11,7 +11,9 @@ class User {
         fechaRegistro,
         rutas = [],
         eventos = [],
-        avatar = ""
+        avatar = "",
+        expoPushToken = "",
+        notifications = null
     ) {
         this.uid = uid;
         this.nombre = nombre;
@@ -27,6 +29,14 @@ class User {
         this.rutas = Array.isArray(rutas) ? rutas : [];
         this.eventos = Array.isArray(eventos) ? eventos : [];
         this.avatar = typeof avatar === 'string' ? avatar : "";
+        
+        // NOTIFICATION FIELDS
+        this.expoPushToken = typeof expoPushToken === 'string' ? expoPushToken : "";
+        this.notifications = notifications || {
+            enabled: true,
+            onEventJoin: true,
+            onEventCancelled: true
+        };
     }
 }
 

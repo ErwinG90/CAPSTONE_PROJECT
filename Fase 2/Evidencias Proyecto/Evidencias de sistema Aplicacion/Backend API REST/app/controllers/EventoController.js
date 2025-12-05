@@ -2,6 +2,11 @@ const ParametersError = require('../errors/ParametersError');
 const EventoDTO = require('../dtos/EventoDTO');
 const EventoService = require('../services/EventoService');
 const EventoMapper = require('../mappers/EventoMapper');
+const UserService = require('../services/UserService');
+const NotificationService = require('../services/NotificationService');
+
+const notificationService = new NotificationService();
+const userService = new UserService();
 
 class EventoController {
 
@@ -159,6 +164,44 @@ class EventoController {
         if (code === 'EVENT_FULL') return res.status(409).json({ message }); // conflicto: sin cupos
         return res.status(400).json({ message });
       }
+
+      try {
+        // Si quieres, aquí puedes filtrar por code (por ejemplo solo cuando se unió realmente)
+        // if (code === 'JOINED' || code === 'NEW_PARTICIPANT') { ... }
+
+        const eventoService = new EventoService();
+        const evento = await eventoService.findById(id);
+
+        if (evento) {
+          // usuario que se unió
+          const joinedUser = await userService.findByUid(uid);
+
+          // creador del evento (en tu save guardas data.createdBy)
+          const creatorUid = evento.createdBy;
+          const creator = await userService.findByUid(creatorUid);
+
+          if (
+            creator &&
+            creator.notifications?.enabled &&
+            creator.notifications?.onEventJoin &&
+            creator.expoPushToken // aquí guardaremos el playerId de OneSignal
+          ) {
+            await notificationService.notifyEventJoin(
+              evento._id.toString(),
+              evento.nombre_evento || evento.nombre || 'Tu evento',
+              joinedUser?.nombre || 'Un usuario',
+              creator.expoPushToken
+            );
+          }
+        }
+      } catch (notifError) {
+        console.error(
+          `${new Date().toISOString()} [EventoController] [participate] [WARN] Error al enviar notificación:`,
+          notifError.response?.data || notifError.message
+        );
+        // No rompemos la respuesta al cliente si falla la noti
+      }
+      // 🔔 FIN BLOQUE NUEVO
 
       // 200 si se unió o ya estaba
       return res.status(200).json({ message, code });

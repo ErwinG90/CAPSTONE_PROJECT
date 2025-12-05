@@ -37,6 +37,13 @@ server.use(config.server.context + config.routes.eventos, require('./routes/even
 // ms-rutafit-neg/rutas --> rutaRoutes.js
 server.use(config.server.context + config.routes.rutas, require('./routes/rutaRoutes'));
 
+// notifications routes
+// ms-rutafit-neg/notificaciones --> notification.routes.js
+server.use(
+  config.server.context + '/notificaciones',
+  require('./routes/notification.routes')
+);
+
 server.use(errorMiddleware);
 
 module.exports = server;

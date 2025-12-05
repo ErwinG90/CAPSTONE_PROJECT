@@ -34,6 +34,9 @@ yarn-error.*
 .env
 .env*.local
 
+# Firebase credentials (SENSITIVE - DO NOT COMMIT)
+google-services.json
+
 # typescript
 *.tsbuildinfo
 
