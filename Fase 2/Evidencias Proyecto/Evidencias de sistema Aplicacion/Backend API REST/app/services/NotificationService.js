@@ -8,9 +8,23 @@ class NotificationService {
     }
 
     async sendToUser(playerId, title, message, data = {}) {
+        console.log(`[NotificationService] sendToUser iniciado con:`, {
+            playerId,
+            title,
+            message,
+            data,
+            appId: this.appId ? 'Configurado' : 'NO configurado',
+            restApiKey: this.restApiKey ? 'Configurado' : 'NO configurado'
+        });
+
         if (!playerId) {
             console.log("[NotificationService] Sin playerId, no se envía notificación");
             return;
+        }
+
+        if (!this.appId || !this.restApiKey) {
+            console.error("[NotificationService] Variables de entorno de OneSignal no configuradas");
+            throw new Error("OneSignal no configurado correctamente");
         }
 
         try {
@@ -21,6 +35,8 @@ class NotificationService {
                 contents: { en: message },
                 data,
             };
+
+            console.log(`[NotificationService] Enviando payload a OneSignal:`, JSON.stringify(payload, null, 2));
 
             const response = await axios.post(
                 `${this.baseUrl}/notifications`,
@@ -34,14 +50,25 @@ class NotificationService {
             );
 
             console.log(
-                `[NotificationService] Notificación enviada exitosamente: ${response.data.id}`
+                `[NotificationService] Notificación enviada exitosamente:`, 
+                {
+                    id: response.data.id,
+                    recipients: response.data.recipients,
+                    errors: response.data.errors
+                }
             );
             return response.data;
 
         } catch (error) {
             console.error(
                 `[NotificationService] Error enviando notificación:`,
-                error.response?.data || error.message
+                {
+                    message: error.message,
+                    status: error.response?.status,
+                    statusText: error.response?.statusText,
+                    data: error.response?.data,
+                    url: error.config?.url
+                }
             );
             throw error;
         }
