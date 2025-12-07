@@ -8,6 +8,7 @@ import { auth } from "../../src/firebaseConfig";
 import { validateEmail, validatePassword } from "../../src/validators";
 import axios from "axios";
 import { saveProfile } from "../../src/storage/localCache";
+import { registerPushTokenForUser } from '../../src/utils/pushToken';
 
 const API_BASE = "https://capstone-project-3-13xo.onrender.com/ms-rutafit-neg";
 
@@ -79,6 +80,15 @@ export default function LoginScreen() {
 
       // 3) Si está verificado: traer perfil y cachear
       const uid = u.uid;
+
+      // Registrar / actualizar el push token en tu backend
+      try {
+        await registerPushTokenForUser(uid);
+      } catch (err) {
+        console.log("[Login] Error registrando push token:", err);
+        // No bloqueamos el login si falla el registro del token
+      }
+
       try {
         const { data } = await axios.get(`${API_BASE}/users/${uid}`);
         await saveProfile({ ...data, updatedAt: new Date().toISOString() });

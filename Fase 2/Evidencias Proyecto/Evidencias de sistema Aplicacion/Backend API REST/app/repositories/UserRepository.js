@@ -57,6 +57,27 @@ class UserRepository {
         if (safe.eventos !== undefined && !Array.isArray(safe.eventos)) delete safe.eventos;
         if (safe.avatar !== undefined && typeof safe.avatar !== 'string') delete safe.avatar;
 
+        // expoPushToken debe ser string
+        if (safe.expoPushToken !== undefined && typeof safe.expoPushToken !== 'string') {
+            delete safe.expoPushToken;
+        }
+
+        // notifications debe ser objeto con flags booleanos
+        if (safe.notifications !== undefined) {
+            const n = safe.notifications;
+
+            // si no es objeto, lo eliminamos
+            if (typeof n !== 'object' || n === null) {
+                delete safe.notifications;
+            } else {
+                safe.notifications = {
+                    enabled: Boolean(n.enabled),
+                    onEventJoin: Boolean(n.onEventJoin),
+                    onEventCancelled: Boolean(n.onEventCancelled),
+                };
+            }
+        }
+
         const result = await mongoDBClientUser.update(uid, safe);
         if (result.matchedCount === 0) return null;
 
@@ -66,9 +87,9 @@ class UserRepository {
     }
 
     async pullRuta(uid, rutaId) {
-    const mongo = new MongoDBClientUser();
-    return await mongo.pullRuta(uid, rutaId);
-  }
+        const mongo = new MongoDBClientUser();
+        return await mongo.pullRuta(uid, rutaId);
+    }
 
 
 }
