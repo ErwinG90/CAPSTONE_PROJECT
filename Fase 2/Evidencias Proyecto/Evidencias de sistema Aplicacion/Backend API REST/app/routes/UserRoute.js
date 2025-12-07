@@ -13,4 +13,6 @@ router.get('/:uid', (req, res, next) => userController.findByUid(req, res, next)
 
 router.put('/:uid', (req, res, next) => userController.update(req, res, next));
 
+router.put('/:uid/push-token', (req, res, next) => userController.updatePushToken(req, res, next));
+
 module.exports = router;

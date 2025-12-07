@@ -122,6 +122,38 @@ class UserController {
             next(error);
         }
     }
+
+    // === NUEVO === actualizar expoPushToken y preferencias de notificaciones
+    async updatePushToken(req, res, next) {
+        try {
+            const { uid } = req.params;
+            const { expoPushToken, notifications } = req.body || {};
+
+            if (!uid) {
+                return res.status(400).json({ message: "uid requerido" });
+            }
+
+            const partial = {};
+
+            if (expoPushToken) partial.expoPushToken = expoPushToken;
+            if (notifications) partial.notifications = notifications;
+
+            const userService = new UserService();
+            const updated = await userService.update(uid, partial);
+
+            if (!updated) {
+                return res.status(404).json({ message: `Usuario ${uid} no encontrado` });
+            }
+
+            return res.status(200).json({ message: "Push token actualizado" });
+
+        } catch (error) {
+            next(error);
+        }
+    }
 }
+
+
+
 
 module.exports = UserController;
