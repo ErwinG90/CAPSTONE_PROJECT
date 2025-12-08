@@ -30,9 +30,6 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env
-.env*.local
 
 # Firebase credentials (SENSITIVE - DO NOT COMMIT)
 google-services.json
